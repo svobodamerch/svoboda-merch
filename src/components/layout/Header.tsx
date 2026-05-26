@@ -152,13 +152,18 @@ export function Header() {
       </Container>
 
       <div
-        className={`fixed inset-0 z-40 bg-cream transition-opacity lg:hidden ${
+        className={`fixed inset-0 z-40 overflow-y-auto lg:hidden ${
           menuOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
-        }`}
+        } transition-opacity`}
+        style={{
+          background: "rgba(241, 240, 235, 0.72)",
+          backdropFilter: "blur(24px) saturate(1.4)",
+          WebkitBackdropFilter: "blur(24px) saturate(1.4)",
+        }}
       >
-        <Container className="flex h-full flex-col overflow-y-auto pb-8 pt-24">
+        <Container className="flex min-h-full flex-col pb-8 pt-24">
           {mainNav.map((item) => (
-            <div key={item.label} className="border-b border-line py-4">
+            <div key={item.label} className="border-b border-line/60 py-4">
               {item.dropdown ? (
                 <>
                   <p className="text-xs font-medium uppercase tracking-wider text-muted">
