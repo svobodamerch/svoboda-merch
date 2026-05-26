@@ -23,6 +23,50 @@ export type LeadNotionData = {
   deadline?: string;
 };
 
+export type NotionLead = {
+  id: string;
+  name: string;
+  company: string;
+  phone: string;
+  productType: string;
+  quantity: string;
+  comment: string;
+  deadline: string;
+  status: string;
+  createdAt: string;
+};
+
+export async function getNotionLeads(): Promise<NotionLead[]> {
+  const notion = getClient();
+  if (!notion) return [];
+
+  try {
+    const response = await (notion as any).databases.query({
+      database_id: databaseId!,
+      sorts: [{ timestamp: "created_time", direction: "descending" }],
+    });
+
+    return response.results.map((page: any) => {
+      const props = page.properties;
+      return {
+        id: page.id,
+        name: props.Имя?.title?.[0]?.text?.content || "",
+        company: props.Компания?.rich_text?.[0]?.text?.content || "",
+        phone: props.Телефон?.phone_number || "",
+        productType: props["Тип продукции"]?.select?.name || "",
+        quantity: props.Тираж?.rich_text?.[0]?.text?.content || "",
+        comment: props.Комментарий?.rich_text?.[0]?.text?.content || "",
+        deadline: props.Сроки?.rich_text?.[0]?.text?.content || "",
+        status: props.Статус?.select?.name || "Новая",
+        createdAt: props["Дата заявки"]?.date?.start || page.created_time,
+      };
+    });
+  } catch (err) {
+    console.error("[notion] Ошибка чтения заявок:", err);
+    return [];
+  }
+}
+
 export async function createNotionLead(data: LeadNotionData): Promise<boolean> {
   const notion = getClient();
   if (!notion) {

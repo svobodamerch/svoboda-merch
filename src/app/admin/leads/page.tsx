@@ -4,47 +4,42 @@ import { useEffect, useMemo, useState } from "react";
 import { Container } from "@/components/ui/Container";
 
 type Lead = {
-  id: number;
+  id: string;
   name: string;
-  company: string | null;
+  company: string;
   phone: string;
-  product_type: string;
+  productType: string;
   quantity: string;
-  comment: string | null;
-  deadline: string | null;
-  status: "new" | "in_progress" | "done" | "archived";
-  source: string;
-  notes: string | null;
-  email_sent: number;
-  created_at: string;
+  comment: string;
+  deadline: string;
+  status: string;
+  createdAt: string;
 };
 
-const statusLabels: Record<Lead["status"], string> = {
-  new: "Новая",
-  in_progress: "В работе",
-  done: "Выполнено",
-  archived: "Архив",
+const statusMap: Record<string, string> = {
+  "Новая": "Новые",
+  "В работе": "В работе",
+  "Выполнено": "Выполнено",
+  "Архив": "Архив",
 };
 
-const statusColors: Record<Lead["status"], string> = {
-  new: "bg-amber-100 text-amber-800 border-amber-200",
-  in_progress: "bg-blue-100 text-blue-800 border-blue-200",
-  done: "bg-green-100 text-green-800 border-green-200",
-  archived: "bg-gray-100 text-gray-600 border-gray-200",
+const statusColors: Record<string, string> = {
+  "Новая": "bg-amber-100 text-amber-800 border-amber-200",
+  "В работе": "bg-blue-100 text-blue-800 border-blue-200",
+  "Выполнено": "bg-green-100 text-green-800 border-green-200",
+  "Архив": "bg-gray-100 text-gray-600 border-gray-200",
 };
 
 export default function AdminLeadsPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<Lead["status"] | "all">("all");
-  const [expandedId, setExpandedId] = useState<number | null>(null);
-  const [editNotes, setEditNotes] = useState<Record<number, string>>({});
+  const [filter, setFilter] = useState<string>("all");
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   async function fetchLeads() {
     setLoading(true);
     try {
-      const url = filter === "all" ? "/api/leads" : `/api/leads?status=${filter}`;
-      const res = await fetch(url);
+      const res = await fetch("/api/notion-leads");
       const data = await res.json();
       setLeads(data.leads || []);
     } catch {
@@ -56,37 +51,18 @@ export default function AdminLeadsPage() {
 
   useEffect(() => {
     fetchLeads();
-  }, [filter]);
+  }, []);
 
-  async function updateStatus(id: number, status: Lead["status"]) {
-    try {
-      await fetch(`/api/leads/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
-      });
-      fetchLeads();
-    } catch (err) {
-      console.error(err);
-    }
-  }
-
-  async function saveNotes(id: number) {
-    try {
-      await fetch(`/api/leads/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ notes: editNotes[id] || "" }),
-      });
-      fetchLeads();
-    } catch (err) {
-      console.error(err);
-    }
-  }
+  const filteredLeads = useMemo(() => {
+    if (filter === "all") return leads;
+    return leads.filter((l) => l.status === filter);
+  }, [leads, filter]);
 
   const stats = useMemo(() => {
-    const s = { new: 0, in_progress: 0, done: 0, archived: 0, total: leads.length };
-    for (const l of leads) s[l.status]++;
+    const s: Record<string, number> = { all: leads.length };
+    for (const l of leads) {
+      s[l.status] = (s[l.status] || 0) + 1;
+    }
     return s;
   }, [leads]);
 
@@ -104,12 +80,12 @@ export default function AdminLeadsPage() {
       {/* Stats */}
       <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-5">
         {([
-          { key: "all", label: "Все", count: stats.total },
-          { key: "new", label: "Новые", count: stats.new },
-          { key: "in_progress", label: "В работе", count: stats.in_progress },
-          { key: "done", label: "Выполнено", count: stats.done },
-          { key: "archived", label: "Архив", count: stats.archived },
-        ] as { key: Lead["status"] | "all"; label: string; count: number }[]).map((s) => (
+          { key: "all", label: "Все", count: stats.all || 0 },
+          { key: "Новая", label: "Новые", count: stats["Новая"] || 0 },
+          { key: "В работе", label: "В работе", count: stats["В работе"] || 0 },
+          { key: "Выполнено", label: "Выполнено", count: stats["Выполнено"] || 0 },
+          { key: "Архив", label: "Архив", count: stats["Архив"] || 0 },
+        ]).map((s) => (
           <button
             key={s.key}
             onClick={() => setFilter(s.key)}
@@ -136,7 +112,7 @@ export default function AdminLeadsPage() {
             Заявок пока нет
           </div>
         ) : (
-          leads.map((lead) => {
+          filteredLeads.map((lead) => {
             const isOpen = expandedId === lead.id;
             return (
               <div
@@ -162,11 +138,11 @@ export default function AdminLeadsPage() {
                   </div>
                   <div className="flex items-center gap-3">
                     <span
-                      className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${statusColors[lead.status]}`}
+                      className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${statusColors[lead.status] || "bg-gray-100 text-gray-600 border-gray-200"}`}
                     >
-                      {statusLabels[lead.status]}
+                      {statusMap[lead.status] || lead.status}
                     </span>
-                    <span className="text-xs text-muted">{formatDate(lead.created_at)}</span>
+                    <span className="text-xs text-muted">{formatDate(lead.createdAt)}</span>
                     <span className="text-xs text-muted" aria-hidden>
                       {isOpen ? "▲" : "▼"}
                     </span>
@@ -182,7 +158,7 @@ export default function AdminLeadsPage() {
                       </div>
                       <div>
                         <div className="text-xs text-muted">Тип продукции</div>
-                        <div className="mt-0.5 text-sm font-medium text-ink">{lead.product_type}</div>
+                        <div className="mt-0.5 text-sm font-medium text-ink">{lead.productType}</div>
                       </div>
                       <div>
                         <div className="text-xs text-muted">Тираж</div>
@@ -202,60 +178,6 @@ export default function AdminLeadsPage() {
                         <div className="mt-1 text-sm leading-relaxed text-ink">{lead.comment}</div>
                       </div>
                     )}
-
-                    {/* Notes */}
-                    <div className="mt-5">
-                      <div className="text-xs text-muted">Внутренние заметки</div>
-                      <textarea
-                        className="mt-1 w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-accent"
-                        rows={2}
-                        value={editNotes[lead.id] ?? lead.notes ?? ""}
-                        onChange={(e) => setEditNotes((p) => ({ ...p, [lead.id]: e.target.value }))}
-                        placeholder="Заметки для себя…"
-                      />
-                      <button
-                        onClick={() => saveNotes(lead.id)}
-                        className="mt-2 inline-flex rounded-lg border border-line bg-paper px-3 py-1.5 text-xs font-medium text-ink transition-colors hover:bg-surface"
-                      >
-                        Сохранить заметку
-                      </button>
-                    </div>
-
-                    {/* Actions */}
-                    <div className="mt-5 flex flex-wrap gap-2">
-                      {lead.status !== "new" && (
-                        <button
-                          onClick={() => updateStatus(lead.id, "new")}
-                          className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-800 transition-colors hover:bg-amber-100"
-                        >
-                          В новые
-                        </button>
-                      )}
-                      {lead.status !== "in_progress" && (
-                        <button
-                          onClick={() => updateStatus(lead.id, "in_progress")}
-                          className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-800 transition-colors hover:bg-blue-100"
-                        >
-                          В работу
-                        </button>
-                      )}
-                      {lead.status !== "done" && (
-                        <button
-                          onClick={() => updateStatus(lead.id, "done")}
-                          className="rounded-lg border border-green-200 bg-green-50 px-3 py-1.5 text-xs font-medium text-green-800 transition-colors hover:bg-green-100"
-                        >
-                          Выполнено
-                        </button>
-                      )}
-                      {lead.status !== "archived" && (
-                        <button
-                          onClick={() => updateStatus(lead.id, "archived")}
-                          className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-100"
-                        >
-                          В архив
-                        </button>
-                      )}
-                    </div>
                   </div>
                 )}
               </div>
