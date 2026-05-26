@@ -44,9 +44,9 @@ export const footerNav = {
 
 export const socialLinks = [
   { label: "Telegram", href: "https://t.me/svobodamerch" },
-  { label: "VK", href: "https://vk.com/" },
-  { label: "Max", href: "https://t.me/max_svoboda" },
-  { label: "Instagram", href: "https://instagram.com/" },
+  { label: "VK", href: "https://vk.com/svoboda.site" },
+  { label: "Max", href: "https://max.ru/id543306833220_biz" },
+  { label: "Instagram", href: "https://www.instagram.com/svoboda.site" },
 ];
 
 export const siteContact = {
