@@ -41,11 +41,13 @@ export async function getNotionLeads(): Promise<NotionLead[]> {
   if (!notion) return [];
 
   try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const response = await (notion as any).databases.query({
       database_id: databaseId!,
       sorts: [{ timestamp: "created_time", direction: "descending" }],
     });
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return response.results.map((page: any) => {
       const props = page.properties;
       return {
