@@ -26,9 +26,15 @@ export function Footer() {
                   className="rounded-full border border-line px-4 py-2 text-xs font-medium text-ink-soft transition-colors hover:border-ink hover:text-ink"
                 >
                   {link.label}
+                  {link.label === "Instagram" && (
+                    <span className="ml-0.5 text-[10px] text-muted">*</span>
+                  )}
                 </Link>
               ))}
             </div>
+            <p className="mt-2 max-w-xs text-[10px] leading-relaxed text-muted">
+              * Instagram признан экстремистской организацией и запрещён на территории РФ.
+            </p>
           </div>
 
           <div className="grid grid-cols-2 gap-8 sm:grid-cols-3 md:col-span-8">
