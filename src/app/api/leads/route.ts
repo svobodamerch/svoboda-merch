@@ -19,7 +19,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const lead = createLead({
+    // Сохраняем в SQLite (локально), но если не работает — не ломаем запрос
+    let leadId: number | undefined;
+    try {
+      const lead = createLead({
+        name,
+        company: String(body.company || "").trim() || undefined,
+        phone,
+        productType,
+        quantity,
+        comment: String(body.comment || "").trim() || undefined,
+        deadline: String(body.deadline || "").trim() || undefined,
+      });
+      leadId = lead.id;
+    } catch (dbErr) {
+      console.warn("[api/leads] SQLite недоступна (ожидается на Vercel):", dbErr);
+    }
+
+    // Всегда отправляем уведомление менеджеру и дублируем в Notion
+    const emailData = {
       name,
       company: String(body.company || "").trim() || undefined,
       phone,
@@ -27,22 +45,11 @@ export async function POST(request: NextRequest) {
       quantity,
       comment: String(body.comment || "").trim() || undefined,
       deadline: String(body.deadline || "").trim() || undefined,
-    });
-
-    // Отправляем уведомление менеджеру и дублируем в Notion асинхронно
-    const emailData = {
-      name: lead.name,
-      company: lead.company || undefined,
-      phone: lead.phone,
-      productType: lead.product_type,
-      quantity: lead.quantity,
-      comment: lead.comment || undefined,
-      deadline: lead.deadline || undefined,
     };
     sendManagerNotification(emailData).catch(() => {});
     createNotionLead(emailData).catch(() => {});
 
-    return NextResponse.json({ success: true, id: lead.id }, { status: 201 });
+    return NextResponse.json({ success: true, id: leadId ?? null }, { status: 201 });
   } catch (error) {
     console.error("[api/leads] POST error:", error);
     return NextResponse.json(
