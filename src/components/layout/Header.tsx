@@ -50,9 +50,10 @@ export function Header() {
       <Container className="flex h-[72px] items-center justify-between gap-4 md:h-20">
         <Link
           href="/"
-          className="shrink-0 font-heading text-lg font-semibold tracking-tight text-ink md:text-xl"
+          className="shrink-0 text-ink"
+          style={{ fontWeight: 600, fontSize: "1.2rem", letterSpacing: "-0.01em" }}
         >
-          Свобода<span className="text-accent">.</span>Мерч
+          Свобода<span style={{ color: "var(--color-accent)" }}>.</span>Мерч
         </Link>
 
         <nav
@@ -116,7 +117,8 @@ export function Header() {
               <Link
                 key={item.label}
                 href={item.href}
-                className="rounded-full px-4 py-2 text-sm text-ink-soft transition-colors hover:bg-surface hover:text-ink"
+                className="rounded-full px-4 py-2 text-ink-soft transition-colors hover:bg-surface hover:text-ink"
+                style={{ fontWeight: 400, fontSize: "0.875rem", letterSpacing: "0.01em" }}
               >
                 {item.label}
               </Link>

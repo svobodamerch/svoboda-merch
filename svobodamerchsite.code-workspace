@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"name": "svobodamerchsite",
+			"path": "."
+		},
+		{
+			"path": "../bot-trekker"
+		}
+	],
+	"settings": {},
+	"workbenchMode": "windsurf-agent-window"
+}

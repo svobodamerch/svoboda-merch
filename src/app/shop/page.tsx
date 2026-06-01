@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
-import { getShopProducts, type Product, type ProductStatus } from "@/lib/notion-shop";
 
 const heroVideoUrl =
   process.env.NEXT_PUBLIC_HERO_VIDEO_URL ||
@@ -12,6 +11,27 @@ const heroPosterUrl =
   "https://images.unsplash.com/photo-1556905055-8f358a7a47b2?w=1600&q=80";
 
 const CATEGORIES = ["Все", "Футболки", "Худи", "Кепки", "Шопперы", "Блокноты", "Дропы"];
+
+type ProductStatus = "available" | "sold_out" | "coming_soon";
+
+type Product = {
+  id: string;
+  slug: string;
+  name: string;
+  category: string;
+  price: number;
+  oldPrice?: number;
+  description: string;
+  colors: string[];
+  imageUrl: string;
+  imageBg: string;
+  totalUnits?: number;
+  soldUnits?: number;
+  isNew: boolean;
+  isDrop: boolean;
+  dropNumber?: number;
+  status: ProductStatus;
+};
 
 const STATUS_BADGES: Record<ProductStatus, { text: string; className: string }> = {
   available: { text: "", className: "" },
@@ -32,12 +52,17 @@ export default function ShopPage() {
 
   useEffect(() => {
     let mounted = true;
-    getShopProducts().then((data) => {
-      if (mounted) {
-        setProducts(data);
-        setLoading(false);
-      }
-    });
+    fetch("/api/shop")
+      .then((res) => res.json())
+      .then((data) => {
+        if (mounted) {
+          setProducts(data.products || []);
+          setLoading(false);
+        }
+      })
+      .catch(() => {
+        if (mounted) setLoading(false);
+      });
     return () => {
       mounted = false;
     };
@@ -63,33 +88,28 @@ export default function ShopPage() {
   }
 
   return (
-    <main
-      className="min-h-screen bg-white"
-      style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', system-ui, sans-serif" }}
-    >
+    <div className="min-h-screen bg-white">
       {/* Hero Video */}
       <section className="px-4 pt-4">
-        <div
-          className="relative mx-auto w-full overflow-hidden"
-          style={{ aspectRatio: "16/7", borderRadius: 20 }}
-        >
-          <video
-            autoPlay
-            muted
-            loop
-            playsInline
-            poster={heroPosterUrl}
-            className="h-full w-full object-cover"
-          >
-            <source src={heroVideoUrl} type="video/mp4" />
-          </video>
+        <div className="relative mx-auto w-full overflow-hidden rounded-[20px]">
+          <div className="relative w-full pb-[43.75%]">
+            <video
+              autoPlay
+              muted
+              loop
+              playsInline
+              poster={heroPosterUrl}
+              className="absolute inset-0 h-full w-full object-cover"
+            >
+              <source src={heroVideoUrl} type="video/mp4" />
+            </video>
+          </div>
         </div>
       </section>
 
       {/* Hero Section */}
-      <section className="relative mx-4 mt-4 overflow-hidden" style={{ borderRadius: 18, aspectRatio: "16/6" }}>
+      <section className="relative mx-4 mt-4 min-h-[280px] overflow-hidden rounded-[18px] sm:min-h-[320px] md:min-h-[360px]">
         <div className="absolute inset-0 bg-[#0d0d0d]" />
-        {/* Glow orbs */}
         <div
           className="pointer-events-none absolute -left-20 top-1/2 h-64 w-64 -translate-y-1/2 rounded-full opacity-40"
           style={{ background: "#f59e0b", filter: "blur(100px)" }}
@@ -99,8 +119,8 @@ export default function ShopPage() {
           style={{ background: "#3b82f6", filter: "blur(100px)" }}
         />
 
-        <div className="relative z-10 flex h-full flex-col items-center justify-center px-6 text-center">
-          <p className="text-xs font-medium uppercase tracking-widest" style={{ color: "#c9a96e" }}>
+        <div className="relative z-10 flex h-full min-h-[280px] flex-col items-center justify-center px-6 py-12 text-center sm:min-h-[320px] md:min-h-[360px]">
+          <p className="text-xs font-medium uppercase tracking-widest text-[#c9a96e]">
             Свобода Мерч
           </p>
           <h1 className="mt-3 text-3xl font-semibold tracking-tight text-white sm:text-4xl md:text-5xl">
@@ -127,12 +147,9 @@ export default function ShopPage() {
       </section>
 
       {/* Category Filters */}
-      <div className="sticky top-[72px] z-30 mt-8 bg-white/80 backdrop-blur-xl">
+      <div className="sticky top-[72px] z-30 mt-8 border-b border-gray-100 bg-white/80 backdrop-blur-xl">
         <div className="mx-auto max-w-7xl px-4">
-          <div
-            className="flex gap-2 overflow-x-auto py-3 [&::-webkit-scrollbar]:hidden"
-            style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
-          >
+          <div className="flex gap-2 overflow-x-auto py-3 scrollbar-hide">
             {CATEGORIES.map((cat) => (
               <button
                 key={cat}
@@ -140,7 +157,7 @@ export default function ShopPage() {
                 className={`shrink-0 rounded-full px-4 py-1.5 text-xs font-medium transition-colors ${
                   activeCategory === cat
                     ? "bg-[#1a1a1a] text-white"
-                    : "bg-[#f1f0eb] text-[#1a1a1a] hover:bg-[#e5e4df]"
+                    : "bg-[#f5f5f5] text-[#1a1a1a] hover:bg-[#ebebeb]"
                 }`}
               >
                 {cat}
@@ -157,13 +174,7 @@ export default function ShopPage() {
         ) : filtered.length === 0 ? (
           <div className="py-20 text-center text-sm text-gray-400">Товары не найдены</div>
         ) : (
-          <div
-            className="grid"
-            style={{
-              gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
-              gap: 16,
-            }}
-          >
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
             {filtered.map((product) => {
               const stockPercent =
                 product.totalUnits && product.soldUnits !== undefined
@@ -179,43 +190,22 @@ export default function ShopPage() {
               return (
                 <div
                   key={product.id}
-                  className="group relative cursor-pointer"
-                  style={{
-                    transition: "transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94)",
-                  }}
-                  onMouseEnter={(e) => {
-                    (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)";
-                  }}
-                  onMouseLeave={(e) => {
-                    (e.currentTarget as HTMLElement).style.transform = "translateY(0)";
-                  }}
+                  className="group cursor-pointer transition-transform duration-[400ms] hover:-translate-y-0.5"
                 >
-                  {/* Card */}
-                  <div
-                    className="overflow-hidden bg-white"
-                    style={{
-                      borderRadius: 18,
-                      border: "0.5px solid rgba(0,0,0,0.08)",
-                    }}
-                  >
+                  <div className="overflow-hidden rounded-[18px] border border-black/[0.06] bg-white">
                     {/* Image Area */}
-                    <div
-                      className="relative overflow-hidden"
-                      style={{ aspectRatio: "1/1", backgroundColor: product.imageBg }}
-                    >
+                    <div className="relative aspect-square overflow-hidden" style={{ backgroundColor: product.imageBg }}>
                       <Image
                         src={product.imageUrl}
                         alt={product.name}
                         fill
                         className="object-cover transition-transform duration-[400ms] group-hover:scale-[1.03]"
-                        style={{
-                          transitionTimingFunction: "cubic-bezier(0.25, 0.46, 0.45, 0.94)",
-                        }}
+                        style={{ transitionTimingFunction: "cubic-bezier(0.25, 0.46, 0.45, 0.94)" }}
                         sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
                       />
 
                       {/* Badges */}
-                      <div className="absolute left-2.5 top-2.5 flex flex-col gap-1">
+                      <div className="absolute left-2 top-2 flex flex-col gap-1">
                         {product.isNew && (
                           <span className="rounded-md bg-white/90 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-black backdrop-blur-sm">
                             New
@@ -227,9 +217,7 @@ export default function ShopPage() {
                           </span>
                         )}
                         {product.status !== "available" && STATUS_BADGES[product.status].text && (
-                          <span
-                            className={`rounded-md px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider backdrop-blur-sm ${STATUS_BADGES[product.status].className}`}
-                          >
+                          <span className={`rounded-md px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider backdrop-blur-sm ${STATUS_BADGES[product.status].className}`}>
                             {STATUS_BADGES[product.status].text}
                           </span>
                         )}
@@ -241,19 +229,9 @@ export default function ShopPage() {
                           e.stopPropagation();
                           toggleWishlist(product.id);
                         }}
-                        className="absolute right-2.5 top-2.5 flex h-8 w-8 items-center justify-center rounded-full bg-white/80 opacity-0 backdrop-blur-sm transition-opacity group-hover:opacity-100"
-                        style={{ transition: "opacity 0.3s" }}
+                        className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-white/80 opacity-0 backdrop-blur-sm transition-opacity duration-300 group-hover:opacity-100"
                       >
-                        <svg
-                          width={16}
-                          height={16}
-                          viewBox="0 0 24 24"
-                          fill={isWished ? "#ef4444" : "none"}
-                          stroke={isWished ? "#ef4444" : "#1a1a1a"}
-                          strokeWidth={2}
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
+                        <svg width={16} height={16} viewBox="0 0 24 24" fill={isWished ? "#ef4444" : "none"} stroke={isWished ? "#ef4444" : "#1a1a1a"} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                           <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
                         </svg>
                       </button>
@@ -265,22 +243,16 @@ export default function ShopPage() {
                             e.stopPropagation();
                             addToCart(product.id);
                           }}
-                          className="absolute bottom-2.5 right-2.5 flex h-8 items-center gap-1 rounded-full bg-white/90 px-3 text-xs font-medium text-black opacity-0 backdrop-blur-sm transition-opacity group-hover:opacity-100"
-                          style={{ transition: "opacity 0.3s" }}
+                          className="absolute bottom-2 right-2 flex h-8 items-center gap-1 rounded-full bg-white/90 px-3 text-xs font-medium text-black opacity-0 backdrop-blur-sm transition-opacity duration-300 group-hover:opacity-100"
                         >
                           {inCart ? (
                             <>
-                              <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
-                                <polyline points="20 6 9 17 4 12" />
-                              </svg>
+                              <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><polyline points="20 6 9 17 4 12" /></svg>
                               В корзине
                             </>
                           ) : (
                             <>
-                              <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-                                <line x1="12" y1="5" x2="12" y2="19" />
-                                <line x1="5" y1="12" x2="19" y2="12" />
-                              </svg>
+                              <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
                               В корзину
                             </>
                           )}
@@ -290,32 +262,23 @@ export default function ShopPage() {
                       {/* Stock strip */}
                       {product.totalUnits && product.soldUnits !== undefined && product.status === "available" && (
                         <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-black/10">
-                          <div
-                            className="h-full bg-red-500"
-                            style={{ width: `${stockPercent}%` }}
-                          />
+                          <div className="h-full bg-red-500" style={{ width: `${stockPercent}%` }} />
                         </div>
                       )}
                     </div>
 
                     {/* Card Body */}
                     <div className="p-3">
-                      {/* Category */}
                       <p className="text-[11px] font-medium uppercase tracking-wider text-gray-400">
                         {product.category}
                       </p>
-
-                      {/* Name */}
                       <h3 className="mt-1 text-sm font-medium tracking-tight text-[#1a1a1a]">
                         {product.name}
                       </h3>
-
-                      {/* Description */}
                       <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-gray-400">
                         {product.description}
                       </p>
 
-                      {/* Color swatches */}
                       {product.colors.length > 0 && (
                         <div className="mt-2.5 flex gap-1.5">
                           {product.colors.map((color, i) => (
@@ -329,23 +292,17 @@ export default function ShopPage() {
                         </div>
                       )}
 
-                      {/* Stock urgency */}
                       {remaining !== undefined && remaining < 20 && remaining > 0 && (
                         <p className="mt-2 text-xs font-medium text-red-500">
                           Осталось {remaining} штук
                         </p>
                       )}
 
-                      {/* Price + CTA */}
                       <div className="mt-3 flex items-center justify-between">
                         <div className="flex items-baseline gap-1.5">
-                          <span className="text-sm font-semibold text-[#1a1a1a]">
-                            {formatPrice(product.price)}
-                          </span>
+                          <span className="text-sm font-semibold text-[#1a1a1a]">{formatPrice(product.price)}</span>
                           {product.oldPrice && (
-                            <span className="text-xs text-gray-400 line-through">
-                              {formatPrice(product.oldPrice)}
-                            </span>
+                            <span className="text-xs text-gray-400 line-through">{formatPrice(product.oldPrice)}</span>
                           )}
                         </div>
                         {product.status === "available" && (
@@ -355,7 +312,6 @@ export default function ShopPage() {
                               addToCart(product.id);
                             }}
                             className="rounded-full border border-black/10 px-3 py-1 text-xs font-medium text-[#1a1a1a] transition-colors hover:bg-[#1a1a1a] hover:text-white"
-                            style={{ borderRadius: 980 }}
                           >
                             {inCart ? "Добавлено" : "В корзину"}
                           </button>
@@ -369,6 +325,6 @@ export default function ShopPage() {
           </div>
         )}
       </section>
-    </main>
+    </div>
   );
 }
