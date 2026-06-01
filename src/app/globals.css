@@ -11,8 +11,8 @@
   --color-ink-soft: #444444;
 
   /* Gerbera — один шрифт, разные веса */
-  --font-heading: 'Gerbera', system-ui, sans-serif;
-  --font-body: 'Gerbera', system-ui, sans-serif;
+  --font-heading: 'Commissioner', system-ui, sans-serif;
+  --font-body: 'Commissioner', system-ui, sans-serif;
 
   --radius-pill: 40px;
 }
@@ -24,7 +24,7 @@
 
   body {
     @apply bg-cream text-ink antialiased;
-    font-family: 'Gerbera', system-ui, sans-serif;
+    font-family: 'Commissioner', system-ui, sans-serif;
     font-weight: 400;
     font-size: 16px;
     line-height: 1.6;
@@ -32,21 +32,21 @@
 
   /* Крупные заголовки — тонкие (300) или полужирные (600) */
   h1 {
-    font-family: 'Gerbera', system-ui, sans-serif;
+    font-family: 'Commissioner', system-ui, sans-serif;
     font-weight: 300;
     letter-spacing: -0.03em;
     line-height: 1.05;
   }
 
   h2 {
-    font-family: 'Gerbera', system-ui, sans-serif;
+    font-family: 'Commissioner', system-ui, sans-serif;
     font-weight: 400;
     letter-spacing: -0.02em;
     line-height: 1.15;
   }
 
   h3 {
-    font-family: 'Gerbera', system-ui, sans-serif;
+    font-family: 'Commissioner', system-ui, sans-serif;
     font-weight: 500;
     letter-spacing: -0.01em;
   }

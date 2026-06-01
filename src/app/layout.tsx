@@ -31,7 +31,7 @@ export default function RootLayout({
     <html lang="ru">
       <head>
         <link
-          href="https://fonts.cdnfonts.com/css/gerbera"
+          href="https://fonts.googleapis.com/css2?family=Commissioner:wght@300;400;500;600;700;900&display=swap"
           rel="stylesheet"
         />
       </head>
