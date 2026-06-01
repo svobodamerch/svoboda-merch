@@ -1,23 +1,46 @@
 import { NextRequest, NextResponse } from "next/server";
 
+// Страницы, которые временно отключены — редиректим на главную
+const DISABLED_PATHS = [
+  "/catalog",
+  "/production",
+  "/process",
+  "/cases",
+  "/blog",
+  "/shop",
+  "/business",
+  "/community",
+  "/faq",
+  "/about",
+  "/admin",
+];
+
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  if (pathname.startsWith("/admin")) {
-    const authHeader = request.headers.get("authorization");
-    const expected = "Basic " + btoa("admin:svoboda2024");
-
-    if (authHeader !== expected) {
-      return new NextResponse("Unauthorized", {
-        status: 401,
-        headers: { "WWW-Authenticate": 'Basic realm="Admin"' },
-      });
-    }
+  // Редирект отключённых страниц на главную
+  const isDisabled = DISABLED_PATHS.some(
+    (p) => pathname === p || pathname.startsWith(p + "/"),
+  );
+  if (isDisabled) {
+    return NextResponse.redirect(new URL("/", request.url));
   }
 
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ["/admin/:path*"],
+  matcher: [
+    "/catalog/:path*",
+    "/production/:path*",
+    "/process/:path*",
+    "/cases/:path*",
+    "/blog/:path*",
+    "/shop/:path*",
+    "/business/:path*",
+    "/community/:path*",
+    "/faq/:path*",
+    "/about/:path*",
+    "/admin/:path*",
+  ],
 };

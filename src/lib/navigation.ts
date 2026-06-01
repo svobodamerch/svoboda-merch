@@ -9,37 +9,16 @@ export type NavItem =
   | { label: string; href: string; dropdown: NavDropdownItem[] };
 
 export const mainNav: NavItem[] = [
-  { label: "Продукция", href: "/catalog" },
-  { label: "Услуги", href: "/production" },
-  { label: "Кейсы", href: "/cases" },
-  { label: "Блог", href: "/blog" },
-  { label: "Заказать образец", href: "/#sample" },
+  { label: "О нас", href: "/#about" },
+  { label: "Что делаем", href: "/#services" },
+  { label: "Прайс", href: "/#price" },
+  { label: "Контакты", href: "/#contact" },
 ];
 
 export const footerNav = {
-  products: [
-    { label: "Каталог", href: "/catalog" },
-    { label: "Футболки", href: "/catalog" },
-    { label: "Худи", href: "/catalog" },
-    { label: "Свитшоты", href: "/catalog" },
-    { label: "Шопперы", href: "/catalog" },
-    { label: "Кепки", href: "/catalog" },
-  ],
-  services: [
-    { label: "Печать", href: "/production" },
-    { label: "Вышивка", href: "/production" },
-    { label: "Кастомизация", href: "/production" },
-    { label: "Упаковка", href: "/production" },
-    { label: "Как мы работаем", href: "/process" },
-  ],
-  company: [
-    { label: "Для бизнеса", href: "/business" },
-    { label: "Для комьюнити", href: "/community" },
-    { label: "Кейсы", href: "/cases" },
-    { label: "О нас", href: "/about" },
-    { label: "FAQ", href: "/faq" },
-    { label: "Контакты", href: "/#contact" },
-  ],
+  products: [],
+  services: [],
+  company: [],
 };
 
 export const socialLinks = [
