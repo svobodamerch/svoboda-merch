@@ -1,18 +1,19 @@
 import type { Metadata } from "next";
-import { Golos_Text, Unbounded } from "next/font/google";
+import { Cormorant, Manrope } from "next/font/google";
 import { Footer } from "@/components/layout/Footer";
 import { Header } from "@/components/layout/Header";
 import "./globals.css";
 
-const unbounded = Unbounded({
+const cormorant = Cormorant({
   subsets: ["latin", "cyrillic"],
-  variable: "--font-unbounded",
+  variable: "--font-cormorant",
+  weight: ["300", "400", "500", "600", "700"],
   display: "swap",
 });
 
-const golos = Golos_Text({
+const manrope = Manrope({
   subsets: ["latin", "cyrillic"],
-  variable: "--font-golos",
+  variable: "--font-manrope",
   display: "swap",
 });
 
@@ -42,7 +43,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ru" className={`${unbounded.variable} ${golos.variable}`}>
+    <html lang="ru" className={`${cormorant.variable} ${manrope.variable}`}>
       <body className="font-body">
         <Header />
         <main>{children}</main>

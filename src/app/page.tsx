@@ -6,7 +6,7 @@ import { siteContact, socialLinks } from "@/lib/navigation";
 const stats = [
   { value: "8+", label: "лет в мерче" },
   { value: "500+", label: "проектов" },
-  { value: "от 30", label: "единиц в тираже" },
+  { value: "от 1", label: "единицы в тираже" },
   { value: "14 дн", label: "средний срок" },
 ];
 
@@ -81,7 +81,7 @@ export default function Home() {
         />
         <Container className="relative">
           <p className="mb-4 font-heading text-xs font-semibold uppercase tracking-[0.2em] text-accent">
-            Новосибирск · с 2016 года
+            Новосибирск · Москва · с 2016 года
           </p>
           <h1 className="mb-6 max-w-3xl font-heading text-4xl font-bold leading-[1.1] text-paper md:text-6xl lg:text-7xl">
             Мерч,{" "}
@@ -136,8 +136,8 @@ export default function Home() {
                 стильно и без дешёвого вида.
               </p>
               <p className="text-muted">
-                Производство в Новосибирске: собственные мощности, ответственность
-                за каждый шов, прямой контакт с командой на всех этапах.
+                Производство в Новосибирске, шоурум в Москве: собственные мощности,
+                ответственность за каждый шов, прямой контакт с командой на всех этапах.
               </p>
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -190,7 +190,7 @@ export default function Home() {
             Ориентировочные цены
           </h2>
           <p className="mb-12 max-w-lg text-muted">
-            Цены указаны за единицу при тираже от 30 шт. Финальная стоимость
+            Цены указаны за единицу. Тираж — от 1 единицы. Финальная стоимость
             зависит от материала, нанесения и объёма — напишите нам для расчёта.
           </p>
           <div className="grid gap-6 md:grid-cols-3">
@@ -214,7 +214,7 @@ export default function Home() {
           </div>
           <p className="mt-8 text-sm text-muted">
             * Нанесение (печать, вышивка, ДТФ) рассчитывается отдельно.
-            Минимальный тираж — 30 единиц.
+            Минимальный тираж — от 1 единицы.
           </p>
         </Container>
       </section>

@@ -15,7 +15,7 @@ export function Footer() {
               Свобода<span className="text-accent">.</span>Мерч
             </Link>
             <p className="mt-2 text-sm text-muted">
-              Премиальный мерч для бизнеса и комьюнити. Новосибирск.
+              Премиальный мерч для бизнеса и комьюнити.<br />Новосибирск · Москва
             </p>
           </div>
 
@@ -30,7 +30,7 @@ export function Footer() {
               >
                 {link.label}
                 {link.label === "Instagram" && (
-                  <span className="ml-0.5 text-[10px] text-muted">*</span>
+                  <span className="ml-0.5 text-[10px] text-muted">†</span>
                 )}
               </a>
             ))}
@@ -54,7 +54,7 @@ export function Footer() {
 
         <div className="mt-8 flex flex-col gap-2 border-t border-line pt-6 text-xs text-muted sm:flex-row sm:justify-between">
           <p>© {new Date().getFullYear()} Свобода Мерч</p>
-          <p>* Instagram признан экстремистской организацией и запрещён на территории РФ.</p>
+          <p>† Meta Platforms Inc. (Instagram, Facebook) признана экстремистской организацией и запрещена на территории Российской Федерации.</p>
         </div>
       </Container>
     </footer>
