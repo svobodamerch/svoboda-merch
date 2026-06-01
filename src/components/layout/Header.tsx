@@ -5,11 +5,13 @@ import { useEffect, useRef, useState } from "react";
 import { mainNav, siteContact } from "@/lib/navigation";
 import { Button } from "@/components/ui/Button";
 import { Container } from "@/components/ui/Container";
+import { LeadModal } from "@/components/ui/LeadModal";
 
 export function Header() {
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -40,6 +42,7 @@ export function Header() {
   }, []);
 
   return (
+    <>
     <header
       className={`sticky top-0 z-50 transition-all duration-300 ${
         scrolled
@@ -127,9 +130,14 @@ export function Header() {
         </nav>
 
         <div className="hidden shrink-0 lg:block">
-          <Button href="/#contact" variant="primary" size="md">
-            Начать проект
-          </Button>
+          <button
+            type="button"
+            onClick={() => setModalOpen(true)}
+            className="inline-flex h-11 items-center rounded-full px-6 text-paper transition-opacity hover:opacity-85"
+            style={{ backgroundColor: "var(--color-accent)", fontWeight: 500, fontSize: "0.875rem" }}
+          >
+            Оставить заявку
+          </button>
         </div>
 
         <button
@@ -196,9 +204,14 @@ export function Header() {
             </div>
           ))}
           <div className="mt-8 space-y-4">
-            <Button href="/#contact" variant="primary" className="w-full">
-              Начать проект
-            </Button>
+            <button
+              type="button"
+              onClick={() => { setMenuOpen(false); setModalOpen(true); }}
+              className="w-full rounded-full py-4 text-paper transition-opacity hover:opacity-85"
+              style={{ backgroundColor: "var(--color-accent)", fontWeight: 500, fontSize: "0.95rem" }}
+            >
+              Оставить заявку
+            </button>
             <a
               href={siteContact.phoneHref}
               className="block text-center text-sm text-muted"
@@ -209,5 +222,8 @@ export function Header() {
         </Container>
       </div>
     </header>
+
+    <LeadModal open={modalOpen} onClose={() => setModalOpen(false)} />
+    </>
   );
 }
