@@ -52,9 +52,19 @@ export function Footer() {
           </div>
         </div>
 
-        <div className="mt-8 flex flex-col gap-2 border-t border-line pt-6 text-xs text-muted sm:flex-row sm:justify-between">
-          <p>© {new Date().getFullYear()} Свобода Мерч</p>
-          <p>† Meta Platforms Inc. (Instagram, Facebook) признана экстремистской организацией и запрещена на территории Российской Федерации.</p>
+        <div className="mt-8 border-t border-line pt-6">
+          <div className="flex flex-wrap gap-x-5 gap-y-2 text-xs text-muted mb-4">
+            <Link href="/legal/offer" className="hover:text-ink transition-colors">Оферта</Link>
+            <Link href="/legal/requisites" className="hover:text-ink transition-colors">Реквизиты</Link>
+            <Link href="/legal/payment" className="hover:text-ink transition-colors">Оплата</Link>
+            <Link href="/legal/delivery" className="hover:text-ink transition-colors">Доставка и возврат</Link>
+            <Link href="/legal/privacy" className="hover:text-ink transition-colors">Конфиденциальность</Link>
+            <Link href="/legal/processing" className="hover:text-ink transition-colors">Обработка ПД</Link>
+          </div>
+          <div className="flex flex-col gap-2 text-xs text-muted sm:flex-row sm:justify-between">
+            <p>© {new Date().getFullYear()} ИП Лялин А.С. · ИНН 543306833220</p>
+            <p>† Meta Platforms Inc. (Instagram, Facebook) признана экстремистской организацией и запрещена на территории Российской Федерации.</p>
+          </div>
         </div>
       </Container>
     </footer>

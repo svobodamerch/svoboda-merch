@@ -116,6 +116,15 @@ export function Header() {
                   </div>
                 )}
               </div>
+            ) : item.external ? (
+              <a
+                key={item.label}
+                href={item.href}
+                className="rounded-full px-4 py-2 text-ink-soft transition-colors hover:bg-surface hover:text-ink"
+                style={{ fontWeight: 400, fontSize: "0.875rem", letterSpacing: "0.01em" }}
+              >
+                {item.label}
+              </a>
             ) : (
               <Link
                 key={item.label}
@@ -192,6 +201,14 @@ export function Header() {
                     ))}
                   </div>
                 </>
+              ) : item.external ? (
+                <a
+                  href={item.href}
+                  onClick={() => setMenuOpen(false)}
+                  className="font-heading text-xl text-ink"
+                >
+                  {item.label}
+                </a>
               ) : (
                 <Link
                   href={item.href}

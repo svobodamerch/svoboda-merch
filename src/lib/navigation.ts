@@ -5,10 +5,13 @@ export type NavDropdownItem = {
 };
 
 export type NavItem =
-  | { label: string; href: string; dropdown?: undefined }
-  | { label: string; href: string; dropdown: NavDropdownItem[] };
+  | { label: string; href: string; dropdown?: undefined; external?: boolean }
+  | { label: string; href: string; dropdown: NavDropdownItem[]; external?: boolean };
 
 export const mainNav: NavItem[] = [
+  // Магазин — отдельное приложение за тем же доменом,
+  // поэтому нужен обычный переход, а не клиентский роутинг Next
+  { label: "Магазин", href: "/shop", external: true },
   { label: "О нас", href: "/#about" },
   { label: "Что делаем", href: "/#services" },
   { label: "Прайс", href: "/#price" },
