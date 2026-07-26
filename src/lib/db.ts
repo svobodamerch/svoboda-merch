@@ -60,27 +60,48 @@ export type LeadInput = {
   name: string;
   company?: string;
   phone: string;
+  /** Контакт в Telegram: @ник или ссылка */
+  telegram?: string;
   productType: string;
   quantity: string;
   comment?: string;
   deadline?: string;
+  /** Откуда пришла заявка: website, birka */
+  source?: string;
 };
+
+/**
+ * Миграция: контакт в Telegram у заявителя.
+ * ALTER TABLE падает, если колонка уже есть, — сверяемся со схемой.
+ */
+function ensureTelegramColumn(db: ReturnType<typeof getDb>) {
+  const cols = (db.prepare("PRAGMA table_info(leads)").all() as { name: string }[]).map(
+    (c) => c.name,
+  );
+  if (!cols.includes("telegram")) {
+    db.exec("ALTER TABLE leads ADD COLUMN telegram TEXT");
+  }
+}
 
 export function createLead(input: LeadInput): Lead {
   const db = getDb();
+  ensureTelegramColumn(db);
+
   const stmt = db.prepare(`
-    INSERT INTO leads (name, company, phone, product_type, quantity, comment, deadline, status, source)
-    VALUES (?, ?, ?, ?, ?, ?, ?, 'new', 'website')
+    INSERT INTO leads (name, company, phone, telegram, product_type, quantity, comment, deadline, status, source)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'new', ?)
     RETURNING *
   `);
   return stmt.get(
     input.name,
     input.company || null,
     input.phone,
+    input.telegram || null,
     input.productType,
     input.quantity,
     input.comment || null,
     input.deadline || null,
+    input.source || "website",
   ) as Lead;
 }
 

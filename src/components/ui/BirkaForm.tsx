@@ -5,7 +5,7 @@ import { useState, type FormEvent } from "react";
 type State = "idle" | "sending" | "done" | "error";
 
 export function BirkaForm() {
-  const [form, setForm] = useState({ name: "", phone: "", comment: "" });
+  const [form, setForm] = useState({ name: "", phone: "", telegram: "", comment: "" });
   const [state, setState] = useState<State>("idle");
 
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
@@ -22,6 +22,8 @@ export function BirkaForm() {
         body: JSON.stringify({
           name: form.name.trim(),
           phone: form.phone.trim(),
+          telegram: form.telegram.trim(),
+          source: "birka",
           // Помечаем источник — чтобы в CRM было видно, что пришли с бирки
           productType: "Заявка с бирки",
           quantity: "1",
@@ -69,6 +71,12 @@ export function BirkaForm() {
           value={form.phone}
           onChange={set("phone")}
           required
+        />
+        <input
+          className={field}
+          placeholder="Телеграм — @username"
+          value={form.telegram}
+          onChange={set("telegram")}
         />
         <textarea
           className={`${field} resize-none`}

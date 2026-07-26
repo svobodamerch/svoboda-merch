@@ -12,6 +12,7 @@ interface Props {
 export function LeadModal({ open, onClose }: Props) {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [telegram, setTelegram] = useState("");
   const [comment, setComment] = useState("");
   const [state, setState] = useState<FormState>("idle");
   const overlayRef = useRef<HTMLDivElement>(null);
@@ -36,7 +37,7 @@ export function LeadModal({ open, onClose }: Props) {
   }, [onClose]);
 
   const reset = () => {
-    setName(""); setPhone(""); setComment(""); setState("idle");
+    setName(""); setPhone(""); setTelegram(""); setComment(""); setState("idle");
   };
 
   const handleClose = () => { reset(); onClose(); };
@@ -53,6 +54,7 @@ export function LeadModal({ open, onClose }: Props) {
         body: JSON.stringify({
           name: name.trim(),
           phone: phone.trim(),
+          telegram: telegram.trim(),
           productType: "Не указано",
           quantity: "1",
           comment: comment.trim(),
@@ -161,6 +163,20 @@ export function LeadModal({ open, onClose }: Props) {
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="+7 (999) 123-45-67"
                   required
+                  className={inputClass}
+                />
+              </div>
+
+              <div>
+                <label htmlFor="modal-telegram" className="mb-1.5 block text-xs font-medium text-ink-soft">
+                  Телеграм
+                </label>
+                <input
+                  id="modal-telegram"
+                  type="text"
+                  value={telegram}
+                  onChange={(e) => setTelegram(e.target.value)}
+                  placeholder="@username"
                   className={inputClass}
                 />
               </div>
