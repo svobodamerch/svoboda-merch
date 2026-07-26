@@ -38,3 +38,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# База заявок — рантайм-данные, в git им не место:
+# иначе деплой затирает боевые заявки локальной копией
+data/
+*.db
+*.db-shm
+*.db-wal
