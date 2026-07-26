@@ -23,9 +23,9 @@ export function Footer() {
             <p className="label text-muted mt-3 leading-relaxed">
               Шьём одежду
               <br />
-              Делаем мерч
+              Печатаем мерч
               <br />
-              Новосибирск · Москва
+              Москва · Новосибирск
             </p>
           </div>
 
