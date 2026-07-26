@@ -122,6 +122,13 @@ const process = [
 
 const money = (n: number) => new Intl.NumberFormat("ru-RU").format(n);
 
+/**
+ * Страница читает медиа из файла при каждом запросе.
+ * Без этого Next собрал бы её один раз, и загруженное через бота
+ * не появлялось бы до следующего деплоя.
+ */
+export const dynamic = "force-dynamic";
+
 // ─── страница ───────────────────────────────────────────────────────────────
 
 export default function Home() {
