@@ -4,11 +4,11 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { mainNav, siteContact } from "@/lib/navigation";
 import { Container } from "@/components/ui/Container";
-import { LeadModal } from "@/components/ui/LeadModal";
+import { useLeadModal } from "@/components/ui/LeadModalProvider";
 
 export function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [modalOpen, setModalOpen] = useState(false);
+  const { open: openLeadModal } = useLeadModal();
 
   useEffect(() => {
     document.body.style.overflow = menuOpen ? "hidden" : "";
@@ -59,7 +59,7 @@ export function Header() {
           <div className="hidden shrink-0 lg:block">
             <button
               type="button"
-              onClick={() => setModalOpen(true)}
+              onClick={openLeadModal}
               className="pill label bg-accent text-bg !px-6 !py-3 hover:bg-accent-soft"
             >
               Оставить заявку
@@ -121,7 +121,7 @@ export function Header() {
                 type="button"
                 onClick={() => {
                   setMenuOpen(false);
-                  setModalOpen(true);
+                  openLeadModal();
                 }}
                 className="pill label w-full justify-center bg-accent text-bg !py-4 hover:bg-accent-soft"
               >
@@ -138,7 +138,6 @@ export function Header() {
         </div>
       </header>
 
-      <LeadModal open={modalOpen} onClose={() => setModalOpen(false)} />
     </>
   );
 }

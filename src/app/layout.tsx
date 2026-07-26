@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Footer } from "@/components/layout/Footer";
 import { Header } from "@/components/layout/Header";
+import { LeadModalProvider } from "@/components/ui/LeadModalProvider";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -38,9 +39,11 @@ export default function RootLayout({
         />
       </head>
       <body>
-        <Header />
-        <main>{children}</main>
-        <Footer />
+        <LeadModalProvider>
+          <Header />
+          <main>{children}</main>
+          <Footer />
+        </LeadModalProvider>
       </body>
     </html>
   );
