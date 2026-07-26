@@ -1,5 +1,9 @@
 import { Container } from "@/components/ui/Container";
 import { LeadButton } from "@/components/ui/LeadButton";
+import { AssortmentGallery } from "@/components/home/AssortmentGallery";
+import { HeroReels } from "@/components/home/HeroReels";
+import { VideoStrip } from "@/components/home/VideoStrip";
+import { ProductionCarousel } from "@/components/home/ProductionCarousel";
 import { siteContact, socialLinks } from "@/lib/navigation";
 
 // ─── данные из коммерческого предложения ───────────────────────────────────
@@ -125,6 +129,8 @@ export default function Home() {
       {/* HERO */}
       <section className="border-b border-line">
         <Container className="py-20 md:py-28">
+          <div className="grid gap-12 lg:grid-cols-[1fr_auto] lg:items-center">
+            <div>
           <p className="label text-accent mb-6">Москва · Новосибирск · est. 2016</p>
 
           <h1 className="display text-ink mb-8" style={{ fontSize: "clamp(2.4rem, 8vw, 6rem)" }}>
@@ -154,6 +160,11 @@ export default function Home() {
             </a>
           </div>
 
+            </div>
+
+            <HeroReels />
+          </div>
+
           <div className="mt-16 grid grid-cols-2 gap-6 border-t border-line pt-10 sm:grid-cols-3">
             {stats.map((s) => (
               <div key={s.label}>
@@ -177,34 +188,14 @@ export default function Home() {
               <p className="label text-muted mb-5">
                 Одежда · свой пошив<span className="count">{clothingLine.length}</span>
               </p>
-              <ul className="space-y-1">
-                {clothingLine.map((item) => (
-                  <li
-                    key={item}
-                    className="display text-ink"
-                    style={{ fontSize: "clamp(1.3rem, 4vw, 2.2rem)" }}
-                  >
-                    {item}
-                  </li>
-                ))}
-              </ul>
+              <AssortmentGallery items={clothingLine} />
             </div>
 
             <div>
               <p className="label text-muted mb-5">
                 Сувенирная продукция<span className="count">{souvenirLine.length}</span>
               </p>
-              <ul className="space-y-1">
-                {souvenirLine.map((item) => (
-                  <li
-                    key={item}
-                    className="display text-ink-soft"
-                    style={{ fontSize: "clamp(1.05rem, 2.6vw, 1.5rem)" }}
-                  >
-                    {item}
-                  </li>
-                ))}
-              </ul>
+              <AssortmentGallery items={souvenirLine} accentLast />
               <p className="label text-muted mt-5 leading-relaxed">
                 По каталогам поставщиков и кастомные изделия под задачу
               </p>
@@ -251,17 +242,23 @@ export default function Home() {
       {/* КЛИЕНТЫ */}
       <section className="border-b border-line">
         <Container className="py-14 md:py-16">
-          <p className="label text-accent mb-8">Нам доверяют</p>
-          <div className="flex flex-wrap items-center gap-x-10 gap-y-5">
-            {clients.map((c) => (
-              <span key={c} className="label-lg text-ink-soft">
-                {c}
-              </span>
-            ))}
+          <div className="grid gap-10 lg:grid-cols-[1fr_minmax(0,420px)] lg:items-center">
+            <div>
+              <p className="label text-accent mb-8">Нам доверяют</p>
+              <div className="flex flex-wrap items-center gap-x-10 gap-y-5">
+                {clients.map((c) => (
+                  <span key={c} className="label-lg text-ink-soft">
+                    {c}
+                  </span>
+                ))}
+              </div>
+              <p className="label text-muted mt-8">
+                А ещё НГУ, restme и десятки локальных проектов
+              </p>
+            </div>
+
+            <VideoStrip />
           </div>
-          <p className="label text-muted mt-8">
-            А ещё НГУ, restme и десятки локальных проектов
-          </p>
         </Container>
       </section>
 
@@ -369,18 +366,25 @@ export default function Home() {
                 и мерч в одном месте
               </h2>
               <p className="text-ink-soft mb-4" style={{ fontSize: "0.9rem", lineHeight: 1.75 }}>
-                Мы не просто наносим логотип на готовую футболку. У нас свой крой
-                и свой пошив — поэтому изделие можно поменять: посадку, длину,
-                плотность ткани, фурнитуру.
+                Работаем на всех уровнях задачи. Наносим логотип на готовые
+                изделия — это быстро и подходит, когда нужен понятный мерч
+                к сроку. Шьём по вашим лекалам, если модель уже отработана
+                и её нужно повторить в тираже. И разрабатываем с нуля:
+                подбираем ткань, строим лекала, отшиваем образец.
+              </p>
+              <p className="text-ink-soft mb-4" style={{ fontSize: "0.9rem", lineHeight: 1.75 }}>
+                Свой крой и свой пошив дают свободу в мелочах, из которых
+                и складывается вещь: посадка, длина, плотность полотна,
+                фурнитура, бирки и упаковка.
               </p>
               <p className="text-ink-soft" style={{ fontSize: "0.9rem", lineHeight: 1.75 }}>
-                Производство в Новосибирске, работаем и с Москвой. Помогаем
-                реализовать нестандартные дизайнерские идеи — от эскиза
-                до готового тиража.
+                Производство в Новосибирске и в Москве. Помогаем довести
+                нестандартную идею от эскиза до готового тиража.
               </p>
             </div>
 
-            <div className="grid grid-cols-2 gap-4 self-start">
+            <div className="self-start">
+              <div className="grid grid-cols-2 gap-4">
               {[
                 { t: "Свой крой", d: "Меняем посадку и лекала под задачу" },
                 { t: "Тираж от 1", d: "Пробник или партия на тысячу" },
@@ -392,6 +396,9 @@ export default function Home() {
                   <p className="label text-muted leading-relaxed">{x.d}</p>
                 </div>
               ))}
+              </div>
+
+              <ProductionCarousel />
             </div>
           </div>
         </Container>

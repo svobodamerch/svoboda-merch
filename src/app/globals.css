@@ -111,3 +111,31 @@
     display: none;
   }
 }
+
+@layer utilities {
+  /* Плавное покачивание карточек-рилсов в первом экране */
+  @keyframes float {
+    0%, 100% { translate: 0 0; }
+    50%      { translate: 0 -10px; }
+  }
+
+  /* Бесконечная лента: содержимое продублировано, уезжает ровно на половину */
+  .marquee-track {
+    width: max-content;
+    animation: marquee 32s linear infinite;
+  }
+  .marquee:hover .marquee-track {
+    animation-play-state: paused;
+  }
+
+  @keyframes marquee {
+    from { transform: translateX(0); }
+    to   { transform: translateX(-50%); }
+  }
+
+  /* Уважаем системную настройку «меньше движения» */
+  @media (prefers-reduced-motion: reduce) {
+    .marquee-track { animation: none; }
+    [style*="animation: float"] { animation: none !important; }
+  }
+}
