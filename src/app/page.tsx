@@ -5,6 +5,7 @@ import { HeroReels } from "@/components/home/HeroReels";
 import { VideoStrip } from "@/components/home/VideoStrip";
 import { ProductionCarousel } from "@/components/home/ProductionCarousel";
 import { siteContact, socialLinks } from "@/lib/navigation";
+import { getSiteMedia } from "@/lib/media";
 
 // ─── данные из коммерческого предложения ───────────────────────────────────
 
@@ -124,6 +125,8 @@ const money = (n: number) => new Intl.NumberFormat("ru-RU").format(n);
 // ─── страница ───────────────────────────────────────────────────────────────
 
 export default function Home() {
+  const media = getSiteMedia();
+
   return (
     <>
       {/* HERO */}
@@ -162,7 +165,7 @@ export default function Home() {
 
             </div>
 
-            <HeroReels />
+            <HeroReels items={media.reels} />
           </div>
 
           <div className="mt-16 grid grid-cols-2 gap-6 border-t border-line pt-10 sm:grid-cols-3">
@@ -188,14 +191,14 @@ export default function Home() {
               <p className="label text-muted mb-5">
                 Одежда · свой пошив<span className="count">{clothingLine.length}</span>
               </p>
-              <AssortmentGallery items={clothingLine} />
+              <AssortmentGallery items={clothingLine} media={media.assortment} />
             </div>
 
             <div>
               <p className="label text-muted mb-5">
                 Сувенирная продукция<span className="count">{souvenirLine.length}</span>
               </p>
-              <AssortmentGallery items={souvenirLine} accentLast />
+              <AssortmentGallery items={souvenirLine} media={media.assortment} accentLast />
               <p className="label text-muted mt-5 leading-relaxed">
                 По каталогам поставщиков и кастомные изделия под задачу
               </p>
@@ -257,7 +260,7 @@ export default function Home() {
               </p>
             </div>
 
-            <VideoStrip />
+            <VideoStrip items={media.clients} />
           </div>
         </Container>
       </section>
@@ -398,7 +401,7 @@ export default function Home() {
               ))}
               </div>
 
-              <ProductionCarousel />
+              <ProductionCarousel items={media.production} />
             </div>
           </div>
         </Container>

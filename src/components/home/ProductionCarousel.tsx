@@ -1,6 +1,6 @@
 "use client";
 
-import { productionPhotos, isVideo } from "@/lib/media";
+import { isVideo, type MediaItem } from "@/lib/mediaShared";
 
 /**
  * Карусель кадров с производства под плитками в блоке «О нас».
@@ -9,7 +9,7 @@ import { productionPhotos, isVideo } from "@/lib/media";
  * по краю. Следующий подглядывает справа — видно, что лента длиннее
  * экрана, и её хочется листать.
  */
-export function ProductionCarousel() {
+export function ProductionCarousel({ items: productionPhotos }: { items: MediaItem[] }) {
   if (productionPhotos.length === 0) {
     return (
       <div className="mt-4 flex h-[120px] items-center justify-center rounded-2xl bg-bg">

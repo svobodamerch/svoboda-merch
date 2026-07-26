@@ -1,44 +1,51 @@
+import fs from "fs";
+
 /**
- * Все фото и видео главной страницы собраны здесь.
+ * Медиа главной страницы.
  *
- * Куда класть файлы — два способа:
- *  1. Положить в public/media/ и указать путь «/media/имя.jpg».
- *     Файлы попадают в сборку, поэтому после добавления нужен деплой.
- *  2. Загрузить через CRM магазина и указать выданный адрес
- *     «/shop/uploads/имя.jpg». Появляется сразу, без пересборки.
+ * Список читается из файла во время запроса, а не зашивается в сборку —
+ * поэтому загруженное через бота появляется сразу, без деплоя.
+ * Сами файлы бот кладёт в папку загрузок магазина, её раздаёт nginx
+ * по адресу /shop/uploads/.
  *
- * Пустой массив — не ошибка: компоненты покажут аккуратную заглушку.
+ * Если файла нет или он повреждён — возвращаем пустые списки:
+ * компоненты покажут аккуратные заглушки, страница не упадёт.
  */
 
+const MEDIA_FILE =
+  process.env.MEDIA_FILE || "/var/www/svoboda-bot/data/media.json";
+
 export interface MediaItem {
-  /** Путь к файлу */
   src: string;
-  /** Подпись: в галерее ассортимента показывается под снимком */
   caption?: string;
 }
 
-/**
- * Ассортимент: снимок для каждой позиции списка.
- * Ключ должен совпадать с названием в списке на главной.
- */
-export const assortmentMedia: Record<string, string> = {
-  // "Футболки": "/media/assortment/tee.jpg",
-  // "Рубашки": "/media/assortment/shirt.jpg",
-};
+export interface SiteMedia {
+  /** Снимок для каждой позиции списка ассортимента */
+  assortment: Record<string, string>;
+  /** Вертикальные ролики в первом экране */
+  reels: MediaItem[];
+  /** Горизонтальная лента рядом с клиентами */
+  clients: MediaItem[];
+  /** Кадры с производства в блоке «О нас» */
+  production: MediaItem[];
+}
 
-/** Вертикальные ролики в первом экране — как рилсы */
-export const heroReels: MediaItem[] = [
-  // { src: "/media/reels/1.mp4" },
-];
+const EMPTY: SiteMedia = { assortment: {}, reels: [], clients: [], production: [] };
 
-/** Горизонтальная лента роликов рядом с клиентами */
-export const clientReel: MediaItem[] = [
-  // { src: "/media/clients/ngs.mp4", caption: "NGS.RU" },
-];
-
-/** Фотографии с производства в блоке «О нас» */
-export const productionPhotos: MediaItem[] = [
-  // { src: "/media/production/1.jpg", caption: "Раскрой" },
-];
+export function getSiteMedia(): SiteMedia {
+  try {
+    const raw = JSON.parse(fs.readFileSync(MEDIA_FILE, "utf8"));
+    return {
+      assortment:
+        raw.assortment && typeof raw.assortment === "object" ? raw.assortment : {},
+      reels: Array.isArray(raw.reels) ? raw.reels : [],
+      clients: Array.isArray(raw.clients) ? raw.clients : [],
+      production: Array.isArray(raw.production) ? raw.production : [],
+    };
+  } catch {
+    return EMPTY;
+  }
+}
 
 export const isVideo = (src: string) => /\.(mp4|mov|webm)$/i.test(src);

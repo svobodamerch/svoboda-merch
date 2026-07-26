@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { assortmentMedia, isVideo } from "@/lib/media";
+import { isVideo } from "@/lib/mediaShared";
 
 /**
  * Список ассортимента с картинкой, которая оживает при взаимодействии.
@@ -39,16 +39,19 @@ function Frame({ src, alt }: { src: string; alt: string }) {
 
 export function AssortmentGallery({
   items,
+  media,
   accentLast,
 }: {
   items: string[];
+  /** Снимки по названию позиции */
+  media: Record<string, string>;
   /** Мелкий кегль для второстепенного списка (сувенирка) */
   accentLast?: boolean;
 }) {
   const [active, setActive] = useState(0);
   const [openOnPhone, setOpenOnPhone] = useState<number | null>(null);
 
-  const hasMedia = items.some((i) => assortmentMedia[i]);
+  const hasMedia = items.some((i) => media[i]);
   const fontSize = accentLast
     ? "clamp(1.05rem, 2.6vw, 1.5rem)"
     : "clamp(1.3rem, 4vw, 2.2rem)";
@@ -57,7 +60,7 @@ export function AssortmentGallery({
     <div className={hasMedia ? "grid gap-8 md:grid-cols-[1fr_240px]" : ""}>
       <ul onMouseLeave={() => setActive(0)}>
         {items.map((item, i) => {
-          const src = assortmentMedia[item];
+          const src = media[item];
           const isActive = active === i && hasMedia;
           const isOpen = openOnPhone === i;
 
@@ -131,7 +134,7 @@ export function AssortmentGallery({
         <div className="hidden md:block">
           <div className="sticky top-24 aspect-[3/4] overflow-hidden rounded-2xl bg-bg">
             {items.map((item, i) => {
-              const src = assortmentMedia[item];
+              const src = media[item];
               if (!src) return null;
               const shown = active === i;
 
@@ -151,7 +154,7 @@ export function AssortmentGallery({
             })}
 
             {/* У наведённой позиции снимка ещё нет */}
-            {!assortmentMedia[items[active]] && (
+            {!media[items[active]] && (
               <div className="flex h-full items-center justify-center px-4">
                 <p className="label text-muted text-center">{items[active]}</p>
               </div>

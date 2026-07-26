@@ -1,6 +1,6 @@
 "use client";
 
-import { heroReels, isVideo } from "@/lib/media";
+import { isVideo, type MediaItem } from "@/lib/mediaShared";
 
 /**
  * Стопка вертикальных роликов в первом экране.
@@ -19,7 +19,7 @@ const LAYOUT = [
   { rotate: -2.5, x: 188, y: 34, z: 2, delay: "2.2s" },
 ];
 
-export function HeroReels() {
+export function HeroReels({ items: heroReels }: { items: MediaItem[] }) {
   const cards = LAYOUT.map((pos, i) => ({ pos, item: heroReels[i] }));
 
   return (

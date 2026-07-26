@@ -1,6 +1,6 @@
 "use client";
 
-import { clientReel, isVideo } from "@/lib/media";
+import { isVideo, type MediaItem } from "@/lib/mediaShared";
 
 /**
  * Невысокая горизонтальная лента роликов.
@@ -10,7 +10,7 @@ import { clientReel, isVideo } from "@/lib/media";
  * на её месте — стык незаметен. При наведении лента замирает,
  * чтобы можно было рассмотреть.
  */
-export function VideoStrip() {
+export function VideoStrip({ items: clientReel }: { items: MediaItem[] }) {
   if (clientReel.length === 0) {
     return (
       <div className="flex h-[150px] items-center justify-center rounded-2xl bg-surface">
