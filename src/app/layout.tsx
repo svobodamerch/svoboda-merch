@@ -4,19 +4,21 @@ import { Header } from "@/components/layout/Header";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Свобода Мерч — премиальный мерч для брендов",
+  title: "[СВОБОДА]* — шьём одежду, делаем мерч",
   description:
-    "Создаём одежду, мерч и брендированные вещи для компаний, комьюнити и независимых проектов — от идеи до готового тиража.",
+    "Швейное производство и мерч полного цикла: футболки, худи, рубашки, жилеты, головные уборы, аксессуары. Тираж от 1 единицы. Новосибирск · Москва.",
   keywords: [
     "мерч",
     "корпоративный мерч",
     "брендированная одежда",
+    "пошив одежды на заказ",
     "свобода мерч",
     "svoboda.site",
   ],
   openGraph: {
-    title: "Свобода Мерч — мерч, который хочется носить",
-    description: "Премиальный мерч для бизнеса, комьюнити и креаторов.",
+    title: "[СВОБОДА]* — шьём одежду, делаем мерч",
+    description:
+      "Своё производство: от эскиза до тиража. Шьём одежду под вашим брендом и делаем мерч с вашим логотипом.",
     locale: "ru_RU",
     type: "website",
   },
@@ -31,7 +33,7 @@ export default function RootLayout({
     <html lang="ru">
       <head>
         <link
-          href="https://fonts.googleapis.com/css2?family=Commissioner:wght@300;400;500;600;700;900&display=swap"
+          href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap"
           rel="stylesheet"
         />
       </head>

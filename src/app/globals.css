@@ -1,20 +1,26 @@
 @import "tailwindcss";
 
 @theme inline {
-  --color-cream: #fafaf9;
-  --color-ink: #111111;
-  --color-accent: #c4a882;
+  /* Палитра общая с магазином: белый фон, глубокий синий, терракота */
+  --color-bg: #ffffff;
+  --color-cream: #ffffff;      /* старое имя фона — оставлено, чтобы не ломать готовые страницы */
   --color-paper: #ffffff;
-  --color-muted: #888888;
-  --color-line: #e8e4df;
-  --color-surface: #f4f2ef;
-  --color-ink-soft: #444444;
+  --color-surface: #f4f3f1;
+  --color-line: #e5e3df;
 
-  /* Gerbera — один шрифт, разные веса */
-  --font-heading: 'Commissioner', system-ui, sans-serif;
-  --font-body: 'Commissioner', system-ui, sans-serif;
+  --color-ink: #22304f;
+  --color-ink-soft: #4a5875;
+  --color-muted: #8a8f9c;
 
-  --radius-pill: 40px;
+  --color-accent: #c05b3e;
+  --color-accent-soft: #a94d33;
+  --color-tint: #f7ede8;
+
+  --font-heading: 'JetBrains Mono', ui-monospace, monospace;
+  --font-body: 'JetBrains Mono', ui-monospace, monospace;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  --radius-pill: 999px;
 }
 
 @layer base {
@@ -23,52 +29,79 @@
   }
 
   body {
-    @apply bg-cream text-ink antialiased;
-    font-family: 'Commissioner', system-ui, sans-serif;
+    @apply bg-bg text-ink antialiased;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
     font-weight: 400;
-    font-size: 16px;
+    font-size: 14px;
     line-height: 1.6;
   }
 
-  /* Крупные заголовки — тонкие (300) или полужирные (600) */
-  h1 {
-    font-family: 'Commissioner', system-ui, sans-serif;
-    font-weight: 300;
-    letter-spacing: -0.03em;
-    line-height: 1.05;
-  }
-
-  h2 {
-    font-family: 'Commissioner', system-ui, sans-serif;
+  h1, h2, h3 {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
     font-weight: 400;
-    letter-spacing: -0.02em;
-    line-height: 1.15;
-  }
-
-  h3 {
-    font-family: 'Commissioner', system-ui, sans-serif;
-    font-weight: 500;
-    letter-spacing: -0.01em;
+    letter-spacing: 0.02em;
   }
 
   ::selection {
-    @apply bg-accent/20 text-ink;
+    @apply bg-tint text-ink;
   }
 }
 
 @layer utilities {
+  /* Надстрочный счётчик — АССОРТИМЕНТ⁽⁸⁾ */
+  .count {
+    font-size: 0.65em;
+    vertical-align: super;
+    line-height: 0;
+    opacity: 0.75;
+  }
+
+  /* Мелкий капс с разрядкой — основной приём навигации */
+  .label {
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    font-size: 11px;
+  }
+
+  .label-lg {
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    font-size: 13px;
+  }
+
+  /* Крупный типографический блок — приём из коммерческого предложения */
+  .display {
+    text-transform: uppercase;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 0.95;
+  }
+
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    padding: 7px 14px;
+    transition: background-color 0.15s, color 0.15s;
+  }
+
+  .pill-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    background: var(--color-surface);
+    border-radius: 999px;
+    padding: 3px;
+  }
+
+  .dashed {
+    border: 1px dashed var(--color-ink-soft);
+    border-radius: 999px;
+  }
+
   .text-balance {
     text-wrap: balance;
   }
-
-  /* Утилиты для Gerbera-весов */
-  .font-thin    { font-weight: 300; }
-  .font-light   { font-weight: 300; }
-  .font-normal  { font-weight: 400; }
-  .font-medium  { font-weight: 500; }
-  .font-semibold{ font-weight: 600; }
-  .font-bold    { font-weight: 700; }
-  .font-black   { font-weight: 900; }
 
   .scrollbar-hide {
     -ms-overflow-style: none;

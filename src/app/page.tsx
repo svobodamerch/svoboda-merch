@@ -1,71 +1,131 @@
 import { Container } from "@/components/ui/Container";
 import { siteContact, socialLinks } from "@/lib/navigation";
 
-// ─── данные ────────────────────────────────────────────────────────────────
+// ─── данные из коммерческого предложения ───────────────────────────────────
 
 const stats = [
-  { value: "8+", label: "лет в мерче" },
-  { value: "500+", label: "проектов" },
+  { value: "с 2016", label: "делаем мерч" },
   { value: "от 1", label: "единицы в тираже" },
-  { value: "14 дн", label: "средний срок" },
+  { value: "3", label: "вида нанесения" },
+  { value: "7–14", label: "рабочих дней" },
 ];
+
+/** Ассортимент — крупный типографический блок, приём из КП */
+const assortment = [
+  "Футболки",
+  "Рубашки",
+  "Лонгсливы",
+  "Свитшоты",
+  "Толстовки и худи",
+  "Жилеты",
+  "Головные уборы",
+  "Аксессуары",
+];
+
+const clients = ["ЦФТ", "2ГИС", "NGS.RU", "AYS!GROUP", "Greenway", "KARMATRAVEL"];
 
 const services = [
   {
-    tag: "B2B",
-    title: "Корпоративный мерч",
-    desc: "Одежда и аксессуары для команды, ивентов и HR-бренда — с характером, не «просто с логотипом».",
+    tag: "Своё производство",
+    title: "Шьём одежду",
+    desc: "Не перепродаём чужие заготовки: кроим и шьём сами. Поэтому можем поменять крой, длину, ткань и фурнитуру под вашу задачу.",
   },
   {
-    tag: "Community",
-    title: "Комьюнити и клубы",
-    desc: "Коллекции для сообществ, фестивалей и локальных сцен — то, что люди носят сами.",
+    tag: "Брендирование",
+    title: "Мерч с вашим логотипом",
+    desc: "Наносим логотип на изделия — вышивкой, шелкографией или полноцветной печатью. Разработаем макет, если его нет.",
   },
   {
-    tag: "Indie",
-    title: "Независимые проекты",
-    desc: "Малые тиражи для артистов, стартапов и брендов — от эскиза до партии без компромиссов.",
+    tag: "Свой бренд",
+    title: "Одежда под вашей маркой",
+    desc: "Отшиваем коллекции под чужими брендами — с вашими бирками, этикетками и упаковкой.",
   },
   {
-    tag: "Full cycle",
-    title: "Полный цикл",
-    desc: "Концепт, дизайн, ткани, производство и логистика — один партнёр на весь путь.",
+    tag: "Коллаборации",
+    title: "Совместные проекты",
+    desc: "Делали коллекции с NGS.RU, аэропортом Кольцово, НГУ и художниками. Приходите с идеей — доведём до тиража.",
   },
 ];
 
-const why = [
-  { title: "Дизайн, а не печать", desc: "Сначала идея и визуальный язык — потом носитель. Мерч как часть бренда." },
-  { title: "Премиальные материалы", desc: "Ткани и фурнитура уровня streetwear: плотный хлопок, аккуратные швы." },
-  { title: "Гибкие тиражи", desc: "От 1 до крупного заказа — масштабируем без потери качества." },
-  { title: "Локальное производство", desc: "Новосибирск · Москва: контроль на каждом этапе, прозрачный процесс." },
+/** Цены за единицу, ₽. Порядок колонок соответствует priceTiers */
+const priceTiers = ["1–10 шт", "10–50 шт", "от 100 шт", "от 500 шт", "от 1000 шт"];
+const leadTimes = ["5–7 дней", "7–14 дней", "15–30 дней", "1–1,5 месяца", "1–2 месяца"];
+
+const clothing = [
+  {
+    name: "Футболка оверсайз",
+    spec: "Футер 2 нитка · 92% хлопок, 8% эластан",
+    prices: [2100, 1900, 1700, 1500, 1300],
+  },
+  {
+    name: "Худи классика",
+    spec: "Футер 3 нитка диагональ · 85% хлопок, 15% полиэстер",
+    prices: [4000, 3800, 3600, 3400, 3200],
+  },
+  {
+    name: "Худи классика, начёс",
+    spec: "Футер 3 нитка диагональ · 85% хлопок, 15% полиэстер",
+    prices: [4200, 4000, 3800, 3600, 3400],
+  },
+  {
+    name: "Худи оверсайз, начёс",
+    spec: "Футер 3 нитка диагональ · 85% хлопок, 15% полиэстер",
+    prices: [4200, 4000, 3800, 3600, 3400],
+  },
+  {
+    name: "Кофта с замком",
+    spec: "Футер 3 нитка диагональ · 85% хлопок, 15% полиэстер",
+    prices: [4200, 4000, 3800, 3600, 3400],
+  },
+  {
+    name: "Рубашка",
+    spec: "Джинса или вельвет · карман на кнопке, не выцветает",
+    prices: [5000, 4900, 4700, 4500, 4300],
+  },
+  {
+    name: "Жилет",
+    spec: "Софтшел · наполнитель синтепон, подкладка кулирка",
+    prices: [8000, 7800, 7600, 7400, 7000],
+  },
 ];
 
-const priceCategories = [
+const accessories = [
+  { name: "Шопер", spec: "Саржа, хлопок, бязь", prices: [1000, 900, 700, 600, 550] },
+  { name: "Кепка", spec: "Вышивка · one size", prices: [1300, 1200, 1000, 900, 800] },
+  { name: "Шапка", spec: "Вышивка · one size", prices: [1200, 1000, 850, 840, 800] },
+  { name: "Кружка", spec: "Полноцветная печать, цветная внутри", prices: [500, 480, 450, 400, 350] },
+];
+
+const printing = [
   {
-    name: "Футболки",
-    items: [
-      { name: "Базовая (180 г/м²)", from: "от 590 ₽" },
-      { name: "Heavyweight (240 г/м²)", from: "от 890 ₽" },
-      { name: "Оверсайз", from: "от 990 ₽" },
-    ],
+    title: "ДТФ печать",
+    from: "от 132 ₽",
+    desc: "Полноцветная печать с переносом на текстиль. Ложится на хлопок, лён, вискозу, синтетику, кожу, флис, фетр и ворсовые изделия.",
+    note: "Форматы от мини (9 см) до 50×50 см",
   },
   {
-    name: "Худи и свитшоты",
-    items: [
-      { name: "Свитшот crewneck", from: "от 1 490 ₽" },
-      { name: "Худи с капюшоном", from: "от 1 790 ₽" },
-      { name: "Оверсайз худи", from: "от 1 990 ₽" },
-    ],
+    title: "Шелкография",
+    from: "от 30 ₽",
+    desc: "Для больших тиражей — самая низкая цена за единицу. До 6 цветов в макете либо полноцвет CMYK.",
+    note: "Минимальный тираж 30 шт · макс. размер 42 см",
   },
   {
-    name: "Аксессуары",
-    items: [
-      { name: "Шоппер", from: "от 390 ₽" },
-      { name: "Кепка", from: "от 690 ₽" },
-      { name: "Носки", from: "от 290 ₽" },
-    ],
+    title: "Вышивка",
+    from: "по запросу",
+    desc: "Плотное и долговечное нанесение: не выцветает и не трескается. Хорошо смотрится на трикотаже, кепках и шапках.",
+    note: "Считаем по количеству стежков",
   },
 ];
+
+const process = [
+  { n: "01", title: "Задача", desc: "Рассказываете, что нужно: изделие, тираж, сроки, бюджет." },
+  { n: "02", title: "Макет", desc: "Готовим или дорабатываем макет. Простой — 1 000 ₽, правка вашего — 500 ₽." },
+  { n: "03", title: "Образец", desc: "На больших тиражах отшиваем образец и согласуем до старта производства." },
+  { n: "04", title: "Производство", desc: "Кроим, шьём, наносим. Стандартный срок — 7–14 рабочих дней." },
+  { n: "05", title: "Отгрузка", desc: "Упаковываем и отправляем: самовывоз, СДЭК или Почта России." },
+];
+
+const money = (n: number) => new Intl.NumberFormat("ru-RU").format(n);
 
 // ─── страница ───────────────────────────────────────────────────────────────
 
@@ -73,159 +133,93 @@ export default function Home() {
   return (
     <>
       {/* HERO */}
-      <section className="relative overflow-hidden bg-ink py-28 md:py-40">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -right-40 top-0 h-[600px] w-[600px] rounded-full bg-accent/5 blur-3xl"
-        />
-        <Container className="relative">
-          {/* надлинейник */}
-          <p
-            className="mb-6 text-xs font-medium uppercase tracking-[0.25em] text-accent"
-            style={{ fontWeight: 500 }}
-          >
-            Новосибирск · Москва · с 2016 года
+      <section className="border-b border-line">
+        <Container className="py-20 md:py-28">
+          <p className="label text-accent mb-6">
+            Новосибирск · Москва · швейное производство с 2016 года
           </p>
 
-          {/* главный заголовок — Gerbera Light 300 */}
-          <h1
-            className="mb-8 max-w-4xl text-paper"
-            style={{
-              fontWeight: 300,
-              fontSize: "clamp(2.8rem, 7vw, 5.5rem)",
-              letterSpacing: "-0.03em",
-              lineHeight: 1.05,
-            }}
-          >
-            Мерч,{" "}
-            <span style={{ color: "var(--color-accent)" }}>
-              который хочется носить
-            </span>
+          <h1 className="display text-ink mb-8" style={{ fontSize: "clamp(2.4rem, 8vw, 6rem)" }}>
+            Шьём одежду
+            <br />
+            Делаем мерч
           </h1>
 
           <p
-            className="mb-10 max-w-lg text-paper/60"
-            style={{ fontWeight: 400, fontSize: "1.1rem", lineHeight: 1.65 }}
+            className="max-w-xl text-ink-soft mb-10"
+            style={{ fontSize: "0.95rem", lineHeight: 1.75 }}
           >
-            Производим брендированную одежду и мерч для бизнеса, комьюнити
-            и независимых проектов — от идеи до готового тиража.
+            Своё производство полного цикла. Работаем и с крупным бизнесом,
+            и с маленькими гордыми компаниями, и просто с людьми. Можно прийти
+            со своей идеей и допилить изделие так, как считаете правильным.
           </p>
 
-          <div className="flex flex-wrap gap-4">
+          <div className="flex flex-wrap gap-3">
             <a
-              href={siteContact.phoneHref}
-              className="inline-flex h-14 items-center rounded-full bg-accent px-8 text-paper transition-opacity hover:opacity-85"
-              style={{ fontWeight: 500, fontSize: "0.9rem", letterSpacing: "0.02em" }}
+              href="/shop"
+              className="pill label bg-accent text-bg !py-4 !px-8 hover:bg-accent-soft"
             >
-              Позвонить
+              Смотреть магазин →
             </a>
             <a
-              href="https://t.me/svobodamerch"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex h-14 items-center rounded-full border border-paper/20 px-8 text-paper transition-colors hover:bg-paper/10"
-              style={{ fontWeight: 400, fontSize: "0.9rem", letterSpacing: "0.02em" }}
+              href={siteContact.phoneHref}
+              className="pill label dashed !py-4 !px-8 hover:bg-surface"
             >
-              Написать в Telegram
+              {siteContact.phone}
             </a>
           </div>
 
-          {/* stats */}
-          <div className="mt-16 grid grid-cols-2 gap-6 border-t border-paper/10 pt-10 sm:grid-cols-4">
+          <div className="mt-16 grid grid-cols-2 gap-6 border-t border-line pt-10 sm:grid-cols-4">
             {stats.map((s) => (
-              <div key={s.value}>
-                <p
-                  className="text-paper"
-                  style={{ fontWeight: 300, fontSize: "2.2rem", letterSpacing: "-0.02em", lineHeight: 1 }}
-                >
+              <div key={s.label}>
+                <p className="display text-ink" style={{ fontSize: "1.9rem" }}>
                   {s.value}
                 </p>
-                <p className="mt-1.5 text-sm text-paper/40" style={{ fontWeight: 400 }}>
-                  {s.label}
-                </p>
+                <p className="label text-muted mt-2">{s.label}</p>
               </div>
             ))}
           </div>
         </Container>
       </section>
 
-      {/* О НАС */}
-      <section id="about" className="scroll-mt-24 py-20 md:py-28">
-        <Container>
-          <div className="grid gap-16 md:grid-cols-2 md:items-center">
-            <div>
-              <p
-                className="mb-4 text-xs uppercase tracking-[0.25em] text-accent"
-                style={{ fontWeight: 500 }}
+      {/* АССОРТИМЕНТ */}
+      <section id="assortment" className="scroll-mt-20 border-b border-line bg-surface">
+        <Container className="py-16 md:py-24">
+          <p className="label text-accent mb-8">
+            Что шьём<span className="count">{assortment.length}</span>
+          </p>
+          <ul className="space-y-1">
+            {assortment.map((item) => (
+              <li
+                key={item}
+                className="display text-ink"
+                style={{ fontSize: "clamp(1.6rem, 5.5vw, 3.6rem)" }}
               >
-                О нас
-              </p>
-              <h2
-                className="mb-6 text-ink"
-                style={{ fontWeight: 300, fontSize: "clamp(2rem, 4vw, 3rem)", letterSpacing: "-0.02em", lineHeight: 1.15 }}
-              >
-                Студия брендированной одежды и мерча
-              </h2>
-              <p className="mb-4 text-muted" style={{ fontWeight: 400, lineHeight: 1.7 }}>
-                Мы не просто наносим логотип на футболку. Мы помогаем брендам,
-                командам и сообществам говорить о себе через одежду — честно,
-                стильно и без дешёвого вида.
-              </p>
-              <p className="text-muted" style={{ fontWeight: 400, lineHeight: 1.7 }}>
-                Производство в Новосибирске, шоурум в Москве: собственные мощности,
-                ответственность за каждый шов, прямой контакт на всех этапах.
-              </p>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              {why.map((w) => (
-                <div key={w.title} className="rounded-2xl bg-surface p-6">
-                  <p className="mb-2 text-ink" style={{ fontWeight: 600, fontSize: "0.9rem" }}>
-                    {w.title}
-                  </p>
-                  <p className="text-muted" style={{ fontWeight: 400, fontSize: "0.85rem", lineHeight: 1.6 }}>
-                    {w.desc}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
+                {item}
+              </li>
+            ))}
+          </ul>
+          <p className="label text-muted mt-10 max-w-md leading-relaxed">
+            Размеры S–XXL, унисекс. Больше 17 цветов ткани на выбор.
+            Нестандартный крой и размеры — по согласованию.
+          </p>
         </Container>
       </section>
 
       {/* ЧТО ДЕЛАЕМ */}
-      <section id="services" className="scroll-mt-24 bg-surface py-20 md:py-28">
-        <Container>
-          <p
-            className="mb-4 text-xs uppercase tracking-[0.25em] text-accent"
-            style={{ fontWeight: 500 }}
-          >
-            Что делаем
-          </p>
-          <h2
-            className="mb-12 text-ink"
-            style={{ fontWeight: 300, fontSize: "clamp(2rem, 4vw, 3rem)", letterSpacing: "-0.02em" }}
-          >
-            Направления работы
+      <section id="services" className="scroll-mt-20 border-b border-line">
+        <Container className="py-16 md:py-24">
+          <p className="label text-accent mb-4">Что делаем</p>
+          <h2 className="display text-ink mb-12" style={{ fontSize: "clamp(1.6rem, 4vw, 2.6rem)" }}>
+            Четыре направления
           </h2>
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+
+          <div className="grid gap-4 sm:grid-cols-2">
             {services.map((s) => (
-              <div
-                key={s.title}
-                className="flex flex-col rounded-3xl bg-paper p-7"
-              >
-                <span
-                  className="mb-5 inline-block self-start rounded-full bg-accent/10 px-3 py-1 text-accent"
-                  style={{ fontWeight: 500, fontSize: "0.7rem", letterSpacing: "0.1em", textTransform: "uppercase" }}
-                >
-                  {s.tag}
-                </span>
-                <h3
-                  className="mb-3 text-ink"
-                  style={{ fontWeight: 500, fontSize: "1rem", lineHeight: 1.3 }}
-                >
-                  {s.title}
-                </h3>
-                <p className="text-muted" style={{ fontWeight: 400, fontSize: "0.875rem", lineHeight: 1.65 }}>
+              <div key={s.title} className="rounded-2xl bg-surface p-6 md:p-7">
+                <span className="pill label bg-accent text-bg !py-1 !px-3 mb-5">{s.tag}</span>
+                <h3 className="label-lg text-ink mb-3">{s.title}</h3>
+                <p className="text-ink-soft" style={{ fontSize: "0.875rem", lineHeight: 1.7 }}>
                   {s.desc}
                 </p>
               </div>
@@ -234,115 +228,194 @@ export default function Home() {
         </Container>
       </section>
 
-      {/* ПРАЙС */}
-      <section id="price" className="scroll-mt-24 py-20 md:py-28">
-        <Container>
-          <p
-            className="mb-4 text-xs uppercase tracking-[0.25em] text-accent"
-            style={{ fontWeight: 500 }}
-          >
-            Прайс
-          </p>
-          <h2
-            className="mb-4 text-ink"
-            style={{ fontWeight: 300, fontSize: "clamp(2rem, 4vw, 3rem)", letterSpacing: "-0.02em" }}
-          >
-            Ориентировочные цены
-          </h2>
-          <p className="mb-12 max-w-lg text-muted" style={{ fontWeight: 400, lineHeight: 1.7 }}>
-            Цены указаны за единицу. Тираж — от 1 единицы. Финальная стоимость
-            зависит от материала, нанесения и объёма — напишите нам для расчёта.
-          </p>
-          <div className="grid gap-6 md:grid-cols-3">
-            {priceCategories.map((cat) => (
-              <div key={cat.name} className="rounded-3xl border border-line bg-paper p-7">
-                <h3
-                  className="mb-5 border-b border-line pb-4 text-ink"
-                  style={{ fontWeight: 600, fontSize: "1rem", letterSpacing: "0.01em" }}
-                >
-                  {cat.name}
-                </h3>
-                <ul className="space-y-4">
-                  {cat.items.map((item) => (
-                    <li key={item.name} className="flex items-baseline justify-between gap-4">
-                      <span className="text-ink-soft" style={{ fontWeight: 400, fontSize: "0.875rem" }}>
-                        {item.name}
-                      </span>
-                      <span className="shrink-0 text-ink" style={{ fontWeight: 600, fontSize: "0.875rem" }}>
-                        {item.from}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+      {/* КЛИЕНТЫ */}
+      <section className="border-b border-line">
+        <Container className="py-14 md:py-16">
+          <p className="label text-accent mb-8">Нам доверяют</p>
+          <div className="flex flex-wrap items-center gap-x-10 gap-y-5">
+            {clients.map((c) => (
+              <span key={c} className="label-lg text-ink-soft">
+                {c}
+              </span>
             ))}
           </div>
-          <p className="mt-8 text-muted" style={{ fontWeight: 400, fontSize: "0.8rem" }}>
-            * Нанесение (печать, вышивка, ДТФ) рассчитывается отдельно. Минимальный тираж — от 1 единицы.
+          <p className="label text-muted mt-8">
+            А ещё НГУ, аэропорт Кольцово, restme и десятки локальных проектов
           </p>
         </Container>
       </section>
 
-      {/* КОНТАКТЫ */}
-      <section id="contact" className="scroll-mt-24 bg-ink py-20 md:py-28">
-        <Container>
-          <div className="grid gap-12 md:grid-cols-2 md:items-center">
+      {/* ПРАЙС */}
+      <section id="price" className="scroll-mt-20 border-b border-line bg-surface">
+        <Container className="py-16 md:py-24">
+          <p className="label text-accent mb-4">Прайс</p>
+          <h2 className="display text-ink mb-4" style={{ fontSize: "clamp(1.6rem, 4vw, 2.6rem)" }}>
+            Цена за единицу
+          </h2>
+          <p className="label text-muted mb-10 max-w-lg leading-relaxed">
+            Чем больше тираж, тем ниже цена. Указана стоимость изделия
+            без нанесения — его считаем отдельно.
+          </p>
+
+          <PriceTable title="Одежда" rows={clothing} />
+          <div className="mt-12">
+            <PriceTable title="Аксессуары" rows={accessories} />
+          </div>
+
+          <div className="mt-10 grid gap-3 sm:grid-cols-3">
+            {[
+              { k: "Срок изготовления", v: "7–14 рабочих дней" },
+              { k: "Срочно, до 5 дней", v: "+50% к стоимости" },
+              { k: "Разработка макета", v: "1 000 ₽ · правка 500 ₽" },
+            ].map((x) => (
+              <div key={x.k} className="rounded-xl bg-bg p-5">
+                <p className="label text-muted">{x.k}</p>
+                <p className="label-lg text-ink mt-2">{x.v}</p>
+              </div>
+            ))}
+          </div>
+        </Container>
+      </section>
+
+      {/* НАНЕСЕНИЕ */}
+      <section id="printing" className="scroll-mt-20 border-b border-line">
+        <Container className="py-16 md:py-24">
+          <p className="label text-accent mb-4">Нанесение</p>
+          <h2 className="display text-ink mb-12" style={{ fontSize: "clamp(1.6rem, 4vw, 2.6rem)" }}>
+            Три технологии
+          </h2>
+
+          <div className="grid gap-4 md:grid-cols-3">
+            {printing.map((p) => (
+              <div key={p.title} className="rounded-2xl border border-line p-6 md:p-7">
+                <div className="mb-4 flex items-baseline justify-between gap-3">
+                  <h3 className="label-lg text-ink">{p.title}</h3>
+                  <span className="label text-accent shrink-0">{p.from}</span>
+                </div>
+                <p className="text-ink-soft mb-4" style={{ fontSize: "0.875rem", lineHeight: 1.7 }}>
+                  {p.desc}
+                </p>
+                <p className="label text-muted leading-relaxed">{p.note}</p>
+              </div>
+            ))}
+          </div>
+        </Container>
+      </section>
+
+      {/* КАК РАБОТАЕМ */}
+      <section className="border-b border-line bg-surface">
+        <Container className="py-16 md:py-24">
+          <p className="label text-accent mb-4">Как работаем</p>
+          <h2 className="display text-ink mb-12" style={{ fontSize: "clamp(1.6rem, 4vw, 2.6rem)" }}>
+            От задачи до отгрузки
+          </h2>
+
+          <ol className="border-t border-line">
+            {process.map((p) => (
+              <li
+                key={p.n}
+                className="grid gap-2 border-b border-line py-6 sm:grid-cols-[64px_210px_1fr] sm:items-baseline sm:gap-6"
+              >
+                <span className="label text-accent">{p.n}</span>
+                <span className="label-lg text-ink">{p.title}</span>
+                <span className="text-ink-soft" style={{ fontSize: "0.875rem", lineHeight: 1.7 }}>
+                  {p.desc}
+                </span>
+              </li>
+            ))}
+          </ol>
+        </Container>
+      </section>
+
+      {/* О НАС */}
+      <section id="about" className="scroll-mt-20 border-b border-line">
+        <Container className="py-16 md:py-24">
+          <div className="grid gap-12 md:grid-cols-2">
             <div>
-              <p
-                className="mb-4 text-xs uppercase tracking-[0.25em] text-accent"
-                style={{ fontWeight: 500 }}
-              >
-                Контакты
-              </p>
+              <p className="label text-accent mb-4">О нас</p>
               <h2
-                className="mb-6 text-paper"
-                style={{ fontWeight: 300, fontSize: "clamp(2rem, 4vw, 3rem)", letterSpacing: "-0.02em" }}
+                className="display text-ink mb-6"
+                style={{ fontSize: "clamp(1.6rem, 4vw, 2.6rem)" }}
               >
-                Обсудим ваш проект
+                Швейное производство
+                <br />
+                и мерч в одном месте
               </h2>
-              <p className="mb-10 text-paper/50" style={{ fontWeight: 400, lineHeight: 1.7 }}>
-                Расскажите задачу — ответим в течение часа и предложим варианты
+              <p className="text-ink-soft mb-4" style={{ fontSize: "0.9rem", lineHeight: 1.75 }}>
+                Мы не просто наносим логотип на готовую футболку. У нас свой крой
+                и свой пошив — поэтому изделие можно поменять: посадку, длину,
+                плотность ткани, фурнитуру.
+              </p>
+              <p className="text-ink-soft" style={{ fontSize: "0.9rem", lineHeight: 1.75 }}>
+                Производство в Новосибирске, работаем и с Москвой. Помогаем
+                реализовать нестандартные дизайнерские идеи — от эскиза
+                до готового тиража.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 self-start">
+              {[
+                { t: "Свой крой", d: "Меняем посадку и лекала под задачу" },
+                { t: "Тираж от 1", d: "Пробник или партия на тысячу" },
+                { t: "Макет в цене", d: "Соберём с нуля или доведём ваш" },
+                { t: "Образец", d: "Отшиваем до старта большого тиража" },
+              ].map((x) => (
+                <div key={x.t} className="rounded-2xl bg-surface p-5">
+                  <p className="label-lg text-ink mb-2">{x.t}</p>
+                  <p className="label text-muted leading-relaxed">{x.d}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </Container>
+      </section>
+
+      {/* КОНТАКТЫ */}
+      <section id="contact" className="scroll-mt-20">
+        <Container className="py-16 md:py-24">
+          <div className="grid gap-12 md:grid-cols-2">
+            <div>
+              <p className="label text-accent mb-4">Контакты</p>
+              <h2
+                className="display text-ink mb-6"
+                style={{ fontSize: "clamp(1.6rem, 4vw, 2.6rem)" }}
+              >
+                Обсудим задачу
+              </h2>
+              <p className="text-ink-soft mb-10" style={{ fontSize: "0.9rem", lineHeight: 1.75 }}>
+                Расскажите, что нужно — посчитаем и предложим варианты
                 под ваш бюджет и сроки.
               </p>
-              <div className="space-y-5">
+
+              <div className="space-y-3">
                 <a
                   href={siteContact.phoneHref}
-                  className="flex items-center gap-4 text-paper transition-opacity hover:opacity-70"
+                  className="flex items-baseline justify-between gap-4 border-b border-line pb-3 hover:text-accent"
                 >
-                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-paper/10 text-base">
-                    📞
-                  </span>
-                  <span style={{ fontWeight: 500, fontSize: "1.1rem" }}>{siteContact.phone}</span>
+                  <span className="label text-muted">Телефон</span>
+                  <span className="label-lg text-ink">{siteContact.phone}</span>
                 </a>
                 <a
                   href={siteContact.emailHref}
-                  className="flex items-center gap-4 text-paper transition-opacity hover:opacity-70"
+                  className="flex items-baseline justify-between gap-4 border-b border-line pb-3 hover:text-accent"
                 >
-                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-paper/10 text-base">
-                    ✉️
-                  </span>
-                  <span style={{ fontWeight: 400, fontSize: "1.1rem" }}>{siteContact.email}</span>
+                  <span className="label text-muted">Почта</span>
+                  <span className="label-lg text-ink">{siteContact.email}</span>
                 </a>
                 <a
                   href="https://t.me/svobodamerch"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-4 text-paper transition-opacity hover:opacity-70"
+                  className="flex items-baseline justify-between gap-4 border-b border-line pb-3 hover:text-accent"
                 >
-                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-paper/10 text-base">
-                    💬
-                  </span>
-                  <span style={{ fontWeight: 400, fontSize: "1.1rem" }}>@svobodamerch</span>
+                  <span className="label text-muted">Telegram</span>
+                  <span className="label-lg text-ink">@svobodamerch</span>
                 </a>
               </div>
             </div>
-            <div className="rounded-3xl bg-paper/5 p-8">
-              <p
-                className="mb-6 uppercase tracking-[0.2em] text-paper/40"
-                style={{ fontWeight: 500, fontSize: "0.7rem" }}
-              >
-                Мы в соцсетях
-              </p>
+
+            <div className="self-start rounded-2xl bg-surface p-6 md:p-8">
+              <p className="label text-muted mb-6">Мы в соцсетях</p>
               <div className="grid grid-cols-2 gap-3">
                 {socialLinks.map((s) => (
                   <a
@@ -350,17 +423,83 @@ export default function Home() {
                     href={s.href}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex h-14 items-center justify-center rounded-2xl border border-paper/10 text-paper transition-colors hover:bg-paper/10"
-                    style={{ fontWeight: 500, fontSize: "0.875rem" }}
+                    className="pill label justify-center bg-bg text-ink-soft !py-3.5 hover:text-accent"
                   >
                     {s.label}
+                    {s.label === "Instagram" && (
+                      <span className="ml-0.5 text-[9px] text-muted">†</span>
+                    )}
                   </a>
                 ))}
               </div>
+
+              <a
+                href="/shop"
+                className="pill label mt-6 w-full justify-center bg-accent text-bg !py-4 hover:bg-accent-soft"
+              >
+                Каталог и заказ онлайн →
+              </a>
             </div>
           </div>
         </Container>
       </section>
     </>
+  );
+}
+
+// ─── таблица цен ────────────────────────────────────────────────────────────
+
+interface PriceRow {
+  name: string;
+  spec: string;
+  prices: number[];
+}
+
+function PriceTable({ title, rows }: { title: string; rows: PriceRow[] }) {
+  return (
+    <div>
+      <h3 className="label-lg text-ink mb-4">{title}</h3>
+
+      {/* Таблица шире экрана телефона — прокручивается по горизонтали */}
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[720px] border-collapse">
+          <thead>
+            <tr className="border-b border-line">
+              <th className="label text-muted py-3 pr-4 text-left font-normal">Изделие</th>
+              {priceTiers.map((t, i) => (
+                <th key={t} className="label text-muted py-3 pl-4 text-right font-normal">
+                  {t}
+                  <span className="block text-[9px] normal-case tracking-normal opacity-70">
+                    {leadTimes[i]}
+                  </span>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.name} className="border-b border-line">
+                <td className="py-4 pr-4">
+                  <span className="label-lg text-ink block">{r.name}</span>
+                  <span className="label text-muted mt-1.5 block normal-case tracking-normal">
+                    {r.spec}
+                  </span>
+                </td>
+                {r.prices.map((p, i) => (
+                  <td
+                    key={i}
+                    className={`label py-4 pl-4 text-right ${
+                      i === 0 ? "text-ink" : "text-ink-soft"
+                    }`}
+                  >
+                    {money(p)} ₽
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 }
