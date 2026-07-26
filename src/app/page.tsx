@@ -5,10 +5,9 @@ import { siteContact, socialLinks } from "@/lib/navigation";
 // ─── данные из коммерческого предложения ───────────────────────────────────
 
 const stats = [
-  { value: "est. 2016", label: "на рынке" },
-  { value: "от 1", label: "единицы в тираже" },
-  { value: "3", label: "вида нанесения" },
-  { value: "7–14", label: "рабочих дней" },
+  { value: "с 2016", label: "года на рынке" },
+  { value: "100+", label: "моделей и вариантов мерча" },
+  { value: "7–14", label: "дней производство тиража" },
 ];
 
 /** Одежда собственного пошива */
@@ -110,7 +109,7 @@ const accessories = [
 
 const process = [
   { n: "01", title: "Задача", desc: "Рассказываете, что нужно: изделие, тираж, сроки, бюджет." },
-  { n: "02", title: "Макет", desc: "Готовим или дорабатываем макет. Простой — 1 000 ₽, правка вашего — 500 ₽." },
+  { n: "02", title: "Макет", desc: "Готовим или дорабатываем макет — от 1 000 ₽." },
   { n: "03", title: "Образец", desc: "Быстро отшиваем образец и согласуем до старта производства." },
   { n: "04", title: "Производство", desc: "Кроим, шьём, наносим. Стандартный срок — 7–14 рабочих дней." },
   { n: "05", title: "Отгрузка", desc: "Упаковываем и отправляем: самовывоз, СДЭК или Почта России." },
@@ -155,7 +154,7 @@ export default function Home() {
             </a>
           </div>
 
-          <div className="mt-16 grid grid-cols-2 gap-6 border-t border-line pt-10 sm:grid-cols-4">
+          <div className="mt-16 grid grid-cols-2 gap-6 border-t border-line pt-10 sm:grid-cols-3">
             {stats.map((s) => (
               <div key={s.label}>
                 <p className="display text-ink" style={{ fontSize: "1.9rem" }}>
@@ -302,8 +301,8 @@ export default function Home() {
           <div className="mt-3 grid gap-3 sm:grid-cols-3">
             {[
               { k: "Срок изготовления", v: "7–14 рабочих дней" },
-              { k: "Срочно, до 5 дней", v: "+50% к стоимости" },
-              { k: "Разработка макета", v: "1 000 ₽ · правка 500 ₽" },
+              { k: "Срочный тираж", v: "просчитывается индивидуально" },
+              { k: "Разработка макета", v: "от 1 000 ₽" },
             ].map((x) => (
               <div key={x.k} className="rounded-xl bg-bg p-5">
                 <p className="label text-muted">{x.k}</p>
