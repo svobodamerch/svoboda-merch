@@ -8,6 +8,8 @@ import "./globals.css";
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   alternates: { canonical: "/" },
+  // Подтверждение прав в Яндекс.Вебмастере — дублирует файл в public/
+  verification: { yandex: "cc603d91235bfb2f" },
   title: "[СВОБОДА]* — шьём одежду, печатаем мерч",
   description:
     "Швейное производство и сувенирная продукция полного цикла: футболки, худи, рубашки, жилеты, головные уборы, сувенирка. Тираж от 1 единицы. Москва · Новосибирск.",
