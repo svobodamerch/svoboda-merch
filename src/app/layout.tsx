@@ -2,9 +2,12 @@ import type { Metadata } from "next";
 import { Footer } from "@/components/layout/Footer";
 import { Header } from "@/components/layout/Header";
 import { LeadModalProvider } from "@/components/ui/LeadModalProvider";
+import { JsonLd, organizationSchema, websiteSchema, SITE_URL } from "@/lib/seo";
 import "./globals.css";
 
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
+  alternates: { canonical: "/" },
   title: "[СВОБОДА]* — шьём одежду, печатаем мерч",
   description:
     "Швейное производство и сувенирная продукция полного цикла: футболки, худи, рубашки, жилеты, головные уборы, сувенирка. Тираж от 1 единицы. Москва · Новосибирск.",
@@ -39,6 +42,9 @@ export default function RootLayout({
         />
       </head>
       <body>
+        {/* Кто мы — для поисковиков. Один раз на весь сайт */}
+        <JsonLd data={[organizationSchema(), websiteSchema()]} />
+
         <LeadModalProvider>
           <Header />
           <main>{children}</main>

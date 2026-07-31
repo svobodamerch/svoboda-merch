@@ -15,6 +15,7 @@ export const mainNav: NavItem[] = [
   { label: "Что производим", href: "/#assortment" },
   { label: "Что делаем", href: "/#services" },
   { label: "Прайс", href: "/#price" },
+  { label: "Вопросы", href: "/#faq" },
   { label: "Контакты", href: "/#contact" },
 ];
 

@@ -4,8 +4,10 @@ import { AssortmentGallery } from "@/components/home/AssortmentGallery";
 import { HeroReels } from "@/components/home/HeroReels";
 import { VideoStrip } from "@/components/home/VideoStrip";
 import { ProductionCarousel } from "@/components/home/ProductionCarousel";
+import { PriceList } from "@/components/home/PriceList";
 import { siteContact, socialLinks } from "@/lib/navigation";
 import { getSiteMedia } from "@/lib/media";
+import { JsonLd, catalogSchema, faqSchema } from "@/lib/seo";
 
 // ─── данные из коммерческого предложения ───────────────────────────────────
 
@@ -63,10 +65,7 @@ const services = [
   },
 ];
 
-/** Цены за единицу, ₽. Порядок колонок соответствует priceTiers */
-const priceTiers = ["1–10 шт", "10–50 шт", "от 100 шт", "от 500 шт", "от 1000 шт"];
-const leadTimes = ["5–7 дней", "7–14 дней", "15–30 дней", "1–1,5 месяца", "1–2 месяца"];
-
+/** Цены за единицу, ₽. Порядок соответствует PRICE_TIERS в PriceList */
 const clothing = [
   {
     name: "Футболка оверсайз",
@@ -112,6 +111,34 @@ const accessories = [
   { name: "Кружка", spec: "Полноцветная печать, цветная внутри", prices: [500, 480, 450, 400, 350] },
 ];
 
+/** Вопросы, которые задают чаще всего. Идут и в разметку, и на страницу */
+const faq = [
+  {
+    q: "Какой минимальный тираж?",
+    a: "От одной единицы. Можно отшить пробник, чтобы посмотреть посадку и качество нанесения, а потом запустить партию.",
+  },
+  {
+    q: "Сколько времени занимает заказ?",
+    a: "Стандартный срок — 7–14 рабочих дней. Малые тиражи до 10 штук делаем за 5–7 дней. Срочные заказы просчитываем индивидуально.",
+  },
+  {
+    q: "Можно прийти со своими лекалами?",
+    a: "Да. Шьём по лекалам заказчика, если модель уже отработана. Также разрабатываем с нуля: подбираем ткань, строим лекала, отшиваем образец.",
+  },
+  {
+    q: "Какие есть виды нанесения?",
+    a: "ДТФ-печать с переносом на текстиль, шелкография и вышивка. Технологию подбираем под тираж и макет: шелкография выгоднее на больших партиях, ДТФ — на малых и сложных изображениях.",
+  },
+  {
+    q: "Работаете только с Новосибирском?",
+    a: "Производство в Новосибирске, работаем и с Москвой. Доставляем по всей России — СДЭК, Почта России или самовывоз.",
+  },
+  {
+    q: "Нужен готовый макет?",
+    a: "Не обязательно. Разработаем макет от 1 000 рублей или доведём ваш. Помогаем реализовать нестандартные дизайнерские идеи.",
+  },
+];
+
 const process = [
   { n: "01", title: "Задача", desc: "Рассказываете, что нужно: изделие, тираж, сроки, бюджет." },
   { n: "02", title: "Макет", desc: "Готовим или дорабатываем макет — от 1 000 ₽." },
@@ -119,8 +146,6 @@ const process = [
   { n: "04", title: "Производство", desc: "Кроим, шьём, наносим. Стандартный срок — 7–14 рабочих дней." },
   { n: "05", title: "Отгрузка", desc: "Упаковываем и отправляем: самовывоз, СДЭК или Почта России." },
 ];
-
-const money = (n: number) => new Intl.NumberFormat("ru-RU").format(n);
 
 /**
  * Страница читает медиа из файла при каждом запросе.
@@ -136,6 +161,17 @@ export default function Home() {
 
   return (
     <>
+      {/* Прайс и ответы — для расширенных сниппетов в выдаче */}
+      <JsonLd
+        data={[
+          catalogSchema([
+            { title: "Одежда", rows: clothing },
+            { title: "Аксессуары и сувенирная продукция", rows: accessories },
+          ]),
+          faqSchema(faq),
+        ]}
+      />
+
       {/* HERO */}
       <section className="border-b border-line">
         <Container className="py-20 md:py-28">
@@ -191,7 +227,10 @@ export default function Home() {
       {/* ЧТО ПРОИЗВОДИМ */}
       <section id="assortment" className="scroll-mt-20 border-b border-line bg-surface">
         <Container className="py-16 md:py-24">
-          <p className="label text-accent mb-8">Что производим</p>
+          <p className="label text-accent mb-4">Что производим</p>
+          <h2 className="display text-ink mb-10" style={{ fontSize: "clamp(1.6rem, 4vw, 2.6rem)" }}>
+            Одежда и сувенирка
+          </h2>
 
           <div className="grid gap-12 md:grid-cols-2">
             <div>
@@ -280,13 +319,13 @@ export default function Home() {
             Цена за единицу
           </h2>
           <p className="label text-muted mb-10 max-w-lg leading-relaxed">
-            Чем больше тираж, тем ниже цена. Указана стоимость изделия
-            без нанесения — его считаем отдельно.
+            Нажмите на изделие — покажем цену по каждому тиражу и срок.
+            Указана стоимость без нанесения, его считаем отдельно.
           </p>
 
-          <PriceTable title="Одежда" rows={clothing} />
+          <PriceList title="Одежда" rows={clothing} />
           <div className="mt-12">
-            <PriceTable title="Аксессуары и сувенирка" rows={accessories} />
+            <PriceList title="Аксессуары и сувенирка" rows={accessories} />
           </div>
 
           {/* Нанесение — компактной строкой, без отдельного блока */}
@@ -414,6 +453,38 @@ export default function Home() {
         </Container>
       </section>
 
+      {/* ЧАСТЫЕ ВОПРОСЫ */}
+      <section id="faq" className="scroll-mt-20 border-b border-line">
+        <Container className="py-16 md:py-24">
+          <p className="label text-accent mb-4">Частые вопросы</p>
+          <h2 className="display text-ink mb-10" style={{ fontSize: "clamp(1.6rem, 4vw, 2.6rem)" }}>
+            Что спрашивают чаще всего
+          </h2>
+
+          <div className="max-w-[760px] border-t border-line">
+            {faq.map((item) => (
+              <details key={item.q} className="group border-b border-line">
+                <summary className="flex cursor-pointer list-none items-baseline justify-between gap-4 py-4 transition-colors hover:text-accent [&::-webkit-details-marker]:hidden">
+                  <span className="label-lg text-ink">{item.q}</span>
+                  <span
+                    aria-hidden
+                    className="shrink-0 text-accent transition-transform duration-300 group-open:rotate-180"
+                  >
+                    ↓
+                  </span>
+                </summary>
+                <p
+                  className="text-ink-soft pb-5 pr-8"
+                  style={{ fontSize: "0.9rem", lineHeight: 1.75 }}
+                >
+                  {item.a}
+                </p>
+              </details>
+            ))}
+          </div>
+        </Container>
+      </section>
+
       {/* КОНТАКТЫ */}
       <section id="contact" className="scroll-mt-20">
         <Container className="py-16 md:py-24">
@@ -505,63 +576,5 @@ export default function Home() {
         </Container>
       </section>
     </>
-  );
-}
-
-// ─── таблица цен ────────────────────────────────────────────────────────────
-
-interface PriceRow {
-  name: string;
-  spec: string;
-  prices: number[];
-}
-
-function PriceTable({ title, rows }: { title: string; rows: PriceRow[] }) {
-  return (
-    <div>
-      <h3 className="label-lg text-ink mb-4">{title}</h3>
-
-      {/* Таблица шире экрана телефона — прокручивается по горизонтали */}
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[720px] border-collapse">
-          <thead>
-            <tr className="border-b border-line">
-              <th className="label text-muted py-3 pr-4 text-left font-normal">Изделие</th>
-              {priceTiers.map((t, i) => (
-                <th key={t} className="label text-muted py-3 pl-4 text-right font-normal">
-                  {t}
-                  <span className="block text-[9px] normal-case tracking-normal opacity-70">
-                    {leadTimes[i]}
-                  </span>
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r) => (
-              <tr key={r.name} className="border-b border-line">
-                <td className="py-4 pr-4">
-                  <span className="label-lg text-ink block">{r.name}</span>
-                  <span className="label text-muted mt-1.5 block normal-case tracking-normal">
-                    {r.spec}
-                  </span>
-                </td>
-                {r.prices.map((p, i) => (
-                  <td
-                    key={i}
-                    className={`label py-4 pl-4 text-right ${
-                      i === 0 ? "text-ink" : "text-ink-soft"
-                    }`}
-                  >
-                    <span className="text-muted">от </span>
-                    {money(p)} ₽
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
   );
 }
