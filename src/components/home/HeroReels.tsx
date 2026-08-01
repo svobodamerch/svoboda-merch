@@ -69,8 +69,9 @@ export function HeroReels({ items }: { items: MediaItem[] }) {
   }
 
   return (
+    <div className="lg:w-[400px] xl:w-[600px]">
     <div
-      className="scrollbar-hide -mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 py-4 lg:mx-0 lg:w-[360px] lg:px-0"
+      className="scrollbar-hide -mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 py-4 lg:mx-0 lg:w-[400px] lg:px-0 xl:w-[600px]"
       ref={track}
       onPointerDown={holdOff}
       onWheel={holdOff}
@@ -112,6 +113,13 @@ export function HeroReels({ items }: { items: MediaItem[] }) {
           )}
         </figure>
       ))}
+      </div>
+
+      {items.length > 1 && (
+        <p className="label text-muted mt-1 px-4 lg:px-0">
+          {items.length} {items.length < 5 ? "ролика" : "роликов"} · листайте вбок
+        </p>
+      )}
     </div>
   );
 }
