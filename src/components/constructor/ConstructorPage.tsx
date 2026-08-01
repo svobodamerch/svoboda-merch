@@ -87,6 +87,14 @@ export function ConstructorPage() {
   return (
     <section className="pb-24">
       <Container>
+        <div className="mx-auto mb-10 max-w-2xl rounded-2xl border border-line bg-tint px-6 py-5 text-center">
+          <p className="label-lg text-ink">Раздел в стадии разработки</p>
+          <p className="mt-2 text-sm leading-relaxed text-ink-soft">
+            Сейчас уже принимаем заказы: быстро делаем макет по вашему дизайну вручную и присылаем на
+            согласование — без ожидания автоматики.
+          </p>
+        </div>
+
         <div className="mb-6 flex justify-center gap-2">
           {product.views.map((v) => (
             <button
