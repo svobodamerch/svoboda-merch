@@ -2,12 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { createLead } from "@/lib/db";
 import { sendManagerNotification } from "@/lib/email";
 import { createNotionLead } from "@/lib/notion";
-import { notifyNewLeadWithPhoto } from "@/lib/telegram";
+import { notifyNewLeadWithPhotos } from "@/lib/telegram";
 
 // Заявка из конструктора отдельно от /api/leads: тело содержит base64
-// картинку дизайна, не хотим раздувать обычные текстовые заявки этим.
+// картинки дизайна (по одной на вид — перед/спина/бок), не хотим раздувать
+// обычные текстовые заявки этим.
 
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024; // с запасом — реальный экспорт canvas в разы меньше
+const MAX_DESIGNS = 5;
 
 function decodeDesignImage(dataUrl: string): Buffer | null {
   const match = /^data:image\/png;base64,(.+)$/.exec(dataUrl);
@@ -32,13 +34,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Заполните обязательные поля" }, { status: 400 });
     }
 
-    const designBuffer = decodeDesignImage(String(body.designImage || ""));
-    if (!designBuffer) {
+    const rawDesigns: { view?: string; label?: string; image?: string }[] = Array.isArray(body.designs)
+      ? body.designs.slice(0, MAX_DESIGNS)
+      : [];
+
+    const designs: { view: string; label: string; buffer: Buffer }[] = [];
+    for (const d of rawDesigns) {
+      const buffer = decodeDesignImage(String(d.image || ""));
+      if (!buffer) continue;
+      designs.push({ view: String(d.view || ""), label: String(d.label || d.view || "Дизайн"), buffer });
+    }
+
+    if (designs.length === 0) {
       return NextResponse.json({ error: "Не удалось получить дизайн" }, { status: 400 });
     }
 
+    const viewsLabel = designs.map((d) => d.label).join(", ");
     const fullComment = [
-      `[КОНСТРУКТОР] ${productName}${colorLabel ? `, цвет: ${colorLabel}` : ""}`,
+      `[КОНСТРУКТОР] ${productName}${colorLabel ? `, цвет: ${colorLabel}` : ""}, виды: ${viewsLabel}`,
       comment,
     ]
       .filter(Boolean)
@@ -67,15 +80,18 @@ export async function POST(request: NextRequest) {
       quantity: "1",
       comment: fullComment,
     };
-    sendManagerNotification(emailData, [{ filename: "design.png", content: designBuffer }]).catch(() => {});
+    sendManagerNotification(
+      emailData,
+      designs.map((d) => ({ filename: `design-${d.view}.png`, content: d.buffer })),
+    ).catch(() => {});
 
-    // Notion без вложения на этом этапе — файл живёт в письме/Telegram.
+    // Notion без вложения на этом этапе — файлы живут в письме/Telegram.
     createNotionLead({
       ...emailData,
       comment: `${fullComment}\n(дизайн приложен в письме и Telegram)`,
     }).catch(() => {});
 
-    notifyNewLeadWithPhoto(
+    notifyNewLeadWithPhotos(
       {
         name,
         phone,
@@ -84,7 +100,7 @@ export async function POST(request: NextRequest) {
         comment: fullComment,
         source: "constructor",
       },
-      designBuffer,
+      designs.map((d) => ({ buffer: d.buffer, label: d.label })),
     ).catch((e) => console.warn("[api/design-leads] Telegram:", e));
 
     return NextResponse.json({ success: true, id: leadId ?? null }, { status: 201 });

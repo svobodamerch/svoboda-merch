@@ -9,15 +9,9 @@ import {
   useState,
   type ChangeEvent,
 } from "react";
-import { Stage, Layer, Text, Image as KonvaImage, Transformer } from "react-konva";
+import { Stage, Layer, Text, Image as KonvaImage, Rect, Transformer } from "react-konva";
 import type Konva from "konva";
-import {
-  MOCKUP_VIEWBOX,
-  MOCKUP_DISPLAY_WIDTH,
-  PRINT_ZONE_REAL_MM,
-  type ConstructorProduct,
-} from "@/lib/constructor-products";
-import { TshirtMockupSvg } from "./TshirtMockupSvg";
+import type { PrintView } from "@/lib/constructor-products";
 
 const FONT_OPTIONS = [
   { label: "JetBrains Mono", value: "'JetBrains Mono', monospace" },
@@ -55,33 +49,34 @@ type ImageLayerData = BaseLayer & {
 type LayerData = TextLayerData | ImageLayerData;
 
 export type DesignerCanvasHandle = {
-  /** PNG зоны печати (без рамки трансформера), null если холст ещё не готов. */
+  /** PNG зоны редактирования (без рамки трансформера и без подсказки-рамки), null если пусто/не готово. */
   exportPng: () => string | null;
   hasLayers: () => boolean;
 };
 
 type Props = {
-  product: ConstructorProduct;
+  view: PrintView;
+  /** null — исходный цвет фото, без тонировки. */
+  colorHex: string | null;
 };
 
 let layerCounter = 0;
 const nextId = () => `layer-${++layerCounter}-${Date.now()}`;
 
 export const DesignerCanvas = forwardRef<DesignerCanvasHandle, Props>(function DesignerCanvas(
-  { product },
+  { view, colorHex },
   ref,
 ) {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
   const transformerRef = useRef<Konva.Transformer>(null);
+  const guideRef = useRef<Konva.Rect>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [stageSize, setStageSize] = useState({ width: 1, height: 1 });
   const [layers, setLayers] = useState<LayerData[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  // Внутреннее разрешение канваса подгоняем под реальный размер зоны на
-  // экране — так резкость не плывёт на маленьких/больших экранах.
   useEffect(() => {
     const el = wrapperRef.current;
     if (!el) return;
@@ -99,10 +94,12 @@ export const DesignerCanvas = forwardRef<DesignerCanvasHandle, Props>(function D
     ref,
     () => ({
       exportPng: () => {
-        if (!stageRef.current) return null;
+        if (!stageRef.current || layers.length === 0) return null;
         transformerRef.current?.nodes([]);
-        transformerRef.current?.getLayer()?.batchDraw();
-        return stageRef.current.toDataURL({ pixelRatio: 2 });
+        guideRef.current?.hide();
+        const uri = stageRef.current.toDataURL({ pixelRatio: 2 });
+        guideRef.current?.show();
+        return uri;
       },
       hasLayers: () => layers.length > 0,
     }),
@@ -151,7 +148,7 @@ export const DesignerCanvas = forwardRef<DesignerCanvasHandle, Props>(function D
     reader.onload = () => {
       const img = new window.Image();
       img.onload = () => {
-        const maxDim = Math.min(stageSize.width, stageSize.height) * 0.75;
+        const maxDim = Math.min(stageSize.width, stageSize.height) * 0.6;
         const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
         const width = img.width * scale;
         const height = img.height * scale;
@@ -191,13 +188,15 @@ export const DesignerCanvas = forwardRef<DesignerCanvasHandle, Props>(function D
 
   const selectedLayer = layers.find((l) => l.id === selectedId) ?? null;
 
-  // Грубая оценка «хватит ли разрешения» — сравниваем нативные px картинки
-  // с тем, сколько нужно для чистой печати при её текущем масштабе.
-  // Не итоговый print-ready расчёт (см. комментарий у PRINT_ZONE_REAL_MM).
+  // Грубая оценка «хватит ли разрешения»: переводим текущий размер слоя на
+  // экране в мм через масштаб guideZone → realMm, сравниваем с нативными px
+  // картинки. Не итоговый print-ready расчёт — см. комментарий в
+  // constructor-products.ts у realMm.
   const resolutionStatus: ResolutionStatus | null = (() => {
     if (!selectedLayer || selectedLayer.type !== "image" || stageSize.width <= 1) return null;
-    const printedWidthMm =
-      ((selectedLayer.width * selectedLayer.scaleX) / stageSize.width) * PRINT_ZONE_REAL_MM.width;
+    const imagePxPerRenderedPx = view.workArea.width / stageSize.width;
+    const mmPerImagePx = view.realMm.width / view.guideZone.width;
+    const printedWidthMm = selectedLayer.width * selectedLayer.scaleX * imagePxPerRenderedPx * mmPerImagePx;
     const printedWidthIn = printedWidthMm / 25.4;
     if (printedWidthIn <= 0) return "ok";
     const dpi = selectedLayer.naturalWidth / printedWidthIn;
@@ -206,34 +205,51 @@ export const DesignerCanvas = forwardRef<DesignerCanvasHandle, Props>(function D
     return "critical";
   })();
 
-  const zoneLeftPct = (product.printZone.x / MOCKUP_VIEWBOX.width) * 100;
-  const zoneTopPct = (product.printZone.y / MOCKUP_VIEWBOX.height) * 100;
-  const zoneWidthPct = (product.printZone.width / MOCKUP_VIEWBOX.width) * 100;
-  const zoneHeightPct = (product.printZone.height / MOCKUP_VIEWBOX.height) * 100;
+  // guideZone в координатах stage (относительно workArea, в той же шкале, что и рендер)
+  const scale = stageSize.width / view.workArea.width;
+  const guideX = (view.guideZone.x - view.workArea.x) * scale;
+  const guideY = (view.guideZone.y - view.workArea.y) * scale;
+  const guideW = view.guideZone.width * scale;
+  const guideH = view.guideZone.height * scale;
 
   return (
     <div>
       <div
-        className="relative mx-auto"
+        className="relative mx-auto overflow-hidden rounded-2xl bg-surface"
         style={{
-          maxWidth: MOCKUP_DISPLAY_WIDTH,
-          aspectRatio: `${MOCKUP_VIEWBOX.width} / ${MOCKUP_VIEWBOX.height}`,
+          maxWidth: 640,
+          aspectRatio: `${view.workArea.width} / ${view.workArea.height}`,
         }}
       >
-        <TshirtMockupSvg className="absolute inset-0 h-full w-full" />
+        <div className="absolute inset-0" style={{ isolation: "isolate" }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={view.image}
+            alt=""
+            className="absolute h-auto select-none"
+            style={{
+              // Кадрируем фото до workArea: смещаем и увеличиваем изображение
+              // так, чтобы его часть workArea заполнила контейнер целиком.
+              left: `${-(view.workArea.x / view.workArea.width) * 100}%`,
+              top: `${-(view.workArea.y / view.workArea.height) * 100}%`,
+              width: `${(view.imageWidth / view.workArea.width) * 100}%`,
+              maxWidth: "none",
+            }}
+            draggable={false}
+          />
+          {colorHex && (
+            <div
+              className="absolute inset-0"
+              style={{
+                backgroundColor: colorHex,
+                mixBlendMode: "multiply",
+                clipPath: view.tintClipPath,
+              }}
+            />
+          )}
+        </div>
 
-        <div
-          ref={wrapperRef}
-          className="absolute overflow-hidden rounded-md border-2 border-dashed"
-          style={{
-            left: `${zoneLeftPct}%`,
-            top: `${zoneTopPct}%`,
-            width: `${zoneWidthPct}%`,
-            height: `${zoneHeightPct}%`,
-            borderColor: "var(--color-accent)",
-            background: "rgba(255,255,255,0.35)",
-          }}
-        >
+        <div ref={wrapperRef} className="absolute inset-0">
           <Stage
             width={stageSize.width}
             height={stageSize.height}
@@ -246,6 +262,17 @@ export const DesignerCanvas = forwardRef<DesignerCanvasHandle, Props>(function D
             }}
           >
             <Layer>
+              <Rect
+                ref={guideRef}
+                x={guideX}
+                y={guideY}
+                width={guideW}
+                height={guideH}
+                stroke="#c05b3e"
+                strokeWidth={2}
+                dash={[6, 5]}
+                listening={false}
+              />
               {layers.map((l) =>
                 l.type === "text" ? (
                   <Text

@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { useRef, useState, type FormEvent } from "react";
 import { Container } from "@/components/ui/Container";
-import { defaultConstructorProduct } from "@/lib/constructor-products";
+import { defaultConstructorProduct, type ViewId } from "@/lib/constructor-products";
 import type { DesignerCanvasHandle } from "./DesignerCanvas";
 
 // Konva рисует в <canvas> — на сервере рендерить нечем, поэтому только клиент.
@@ -14,7 +14,7 @@ const DesignerCanvas = dynamic(
 
 function CanvasSkeleton() {
   return (
-    <div className="mx-auto flex aspect-[520/620] max-w-[760px] items-center justify-center rounded-2xl bg-surface">
+    <div className="mx-auto flex aspect-[650/760] max-w-[640px] items-center justify-center rounded-2xl bg-surface">
       <p className="label text-muted">Загружаем редактор…</p>
     </div>
   );
@@ -23,8 +23,16 @@ function CanvasSkeleton() {
 type SubmitState = "idle" | "sending" | "done" | "error" | "empty";
 
 export function ConstructorPage() {
-  const canvasRef = useRef<DesignerCanvasHandle>(null);
   const product = defaultConstructorProduct;
+  const canvasRefs = useRef<Record<ViewId, DesignerCanvasHandle | null>>({
+    front: null,
+    back: null,
+    side: null,
+  });
+
+  const [activeView, setActiveView] = useState<ViewId>(product.views[0].id);
+  const [colorId, setColorId] = useState(product.colors[0].id);
+  const color = product.colors.find((c) => c.id === colorId) ?? product.colors[0];
 
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -37,14 +45,17 @@ export function ConstructorPage() {
     e.preventDefault();
     if (!name.trim() || !phone.trim() || !rightsConfirmed) return;
 
-    if (!canvasRef.current?.hasLayers()) {
-      setState("empty");
-      return;
-    }
+    const designs = product.views
+      .map((v) => {
+        const handle = canvasRefs.current[v.id];
+        if (!handle?.hasLayers()) return null;
+        const image = handle.exportPng();
+        return image ? { view: v.id, label: v.label, image } : null;
+      })
+      .filter((d): d is { view: ViewId; label: string; image: string } => d !== null);
 
-    const designImage = canvasRef.current.exportPng();
-    if (!designImage) {
-      setState("error");
+    if (designs.length === 0) {
+      setState("empty");
       return;
     }
 
@@ -59,8 +70,8 @@ export function ConstructorPage() {
           telegram: telegram.trim(),
           comment: comment.trim(),
           productName: product.name,
-          colorLabel: product.colorLabel,
-          designImage,
+          colorLabel: color.label,
+          designs,
         }),
       });
       if (!res.ok) throw new Error();
@@ -76,13 +87,58 @@ export function ConstructorPage() {
   return (
     <section className="pb-24">
       <Container>
-        <div className="mb-10 text-center">
-          <p className="label text-muted">{product.name} · {product.colorLabel}</p>
+        <div className="mb-6 flex justify-center gap-2">
+          {product.views.map((v) => (
+            <button
+              key={v.id}
+              type="button"
+              onClick={() => setActiveView(v.id)}
+              className={`pill label px-5 py-2 transition-colors ${
+                activeView === v.id ? "bg-accent text-bg" : "bg-surface text-ink hover:bg-line"
+              }`}
+            >
+              {v.label}
+            </button>
+          ))}
         </div>
 
-        <DesignerCanvas ref={canvasRef} product={product} />
+        {product.views.map((v) => (
+          <div key={v.id} className={activeView === v.id ? "" : "hidden"}>
+            <DesignerCanvas
+              ref={(handle) => {
+                canvasRefs.current[v.id] = handle;
+              }}
+              view={v}
+              colorHex={color.hex}
+            />
+          </div>
+        ))}
 
-        <div className="mx-auto mt-16 max-w-md">
+        <div className="mx-auto mt-8 flex max-w-md flex-col items-center gap-3">
+          <div className="flex flex-wrap justify-center gap-2">
+            {product.colors.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => setColorId(c.id)}
+                title={c.label}
+                aria-label={c.label}
+                aria-pressed={colorId === c.id}
+                className="h-8 w-8 rounded-full border-2 transition-transform"
+                style={{
+                  backgroundColor: c.hex ?? "#efe7da",
+                  borderColor: colorId === c.id ? "var(--color-accent)" : "var(--color-line)",
+                  transform: colorId === c.id ? "scale(1.12)" : "scale(1)",
+                }}
+              />
+            ))}
+          </div>
+          <p className="label text-muted text-center">
+            {color.label} · цвет ориентировочный — финальный согласуем с вами перед печатью
+          </p>
+        </div>
+
+        <div className="mx-auto mt-12 max-w-md">
           {state === "done" ? (
             <div className="rounded-2xl bg-tint p-7 text-center">
               <p className="label-lg text-ink mb-3">Заявка принята</p>
@@ -149,7 +205,7 @@ export function ConstructorPage() {
 
               {state === "empty" && (
                 <p className="label mt-3 rounded-xl bg-surface px-4 py-3 text-ink">
-                  Добавьте текст или фото на футболку перед отправкой
+                  Добавьте текст или фото хотя бы на один из видов (перед/спина/бок) перед отправкой
                 </p>
               )}
               {state === "error" && (

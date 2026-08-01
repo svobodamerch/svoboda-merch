@@ -109,12 +109,16 @@ export function notifyNewLead(lead: LeadNotice) {
 }
 
 /**
- * То же уведомление, но с приложенной картинкой дизайна (sendPhoto вместо
- * sendMessage). Если отправка фото не удалась ни одному получателю —
- * не роняем заявку, а шлём обычным текстом, как notifyNewLead.
+ * То же уведомление, но с приложенными картинками дизайна — одно фото шлём
+ * через sendPhoto, несколько (разные виды: перед/спина/бок) — одним
+ * альбомом через sendMediaGroup. Если ни одно фото не доставилось ни
+ * одному получателю — не роняем заявку, шлём обычным текстом.
  */
-export async function notifyNewLeadWithPhoto(lead: LeadNotice, photo: Buffer): Promise<void> {
-  if (!TOKEN) return;
+export async function notifyNewLeadWithPhotos(
+  lead: LeadNotice,
+  photos: { buffer: Buffer; label: string }[],
+): Promise<void> {
+  if (!TOKEN || photos.length === 0) return;
 
   const chats = recipients();
   if (chats.length === 0) return;
@@ -126,21 +130,41 @@ export async function notifyNewLeadWithPhoto(lead: LeadNotice, photo: Buffer): P
     chats.map(async (chat_id) => {
       const form = new FormData();
       form.append("chat_id", String(chat_id));
-      form.append("caption", caption);
-      form.append("parse_mode", "HTML");
-      form.append("photo", new Blob([Uint8Array.from(photo)], { type: "image/png" }), "design.png");
 
-      const res = await fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, {
+      if (photos.length === 1) {
+        form.append("caption", caption);
+        form.append("parse_mode", "HTML");
+        form.append("photo", new Blob([Uint8Array.from(photos[0].buffer)], { type: "image/png" }), "design.png");
+
+        const res = await fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, {
+          method: "POST",
+          body: form,
+        });
+        if (!res.ok) throw new Error(`sendPhoto ${res.status}`);
+        return;
+      }
+
+      const media = photos.map((_, i) => ({
+        type: "photo",
+        media: `attach://design${i}`,
+        ...(i === 0 ? { caption, parse_mode: "HTML" } : {}),
+      }));
+      form.append("media", JSON.stringify(media));
+      photos.forEach((p, i) => {
+        form.append(`design${i}`, new Blob([Uint8Array.from(p.buffer)], { type: "image/png" }), `design-${p.label}.png`);
+      });
+
+      const res = await fetch(`https://api.telegram.org/bot${TOKEN}/sendMediaGroup`, {
         method: "POST",
         body: form,
       });
-      if (!res.ok) throw new Error(`sendPhoto ${res.status}`);
+      if (!res.ok) throw new Error(`sendMediaGroup ${res.status}`);
     }),
   );
 
   const failed = results.filter((r) => r.status === "rejected").length;
   if (failed === chats.length) {
-    console.warn("[telegram] sendPhoto не удался ни одному получателю — шлём текстом");
+    console.warn("[telegram] отправка фото не удалась ни одному получателю — шлём текстом");
     await notifyTelegram(caption);
   } else if (failed) {
     console.warn(`[telegram] фото с дизайном не доставлено получателям: ${failed}`);
