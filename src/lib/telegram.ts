@@ -81,9 +81,10 @@ const SOURCE_LABEL: Record<string, string> = {
   website: "сайт",
   birka: "бирка на изделии",
   shop: "магазин",
+  constructor: "конструктор дизайна",
 };
 
-export function notifyNewLead(lead: LeadNotice) {
+function buildLeadRows(lead: LeadNotice): string[] {
   const rows: string[] = [
     `<b>Новая заявка</b>`,
     ``,
@@ -100,6 +101,48 @@ export function notifyNewLead(lead: LeadNotice) {
   if (lead.comment) rows.push(``, esc(lead.comment));
 
   rows.push(``, `<i>Источник: ${esc(SOURCE_LABEL[lead.source ?? ""] ?? "сайт")}</i>`);
+  return rows;
+}
 
-  return notifyTelegram(rows.join("\n"));
+export function notifyNewLead(lead: LeadNotice) {
+  return notifyTelegram(buildLeadRows(lead).join("\n"));
+}
+
+/**
+ * То же уведомление, но с приложенной картинкой дизайна (sendPhoto вместо
+ * sendMessage). Если отправка фото не удалась ни одному получателю —
+ * не роняем заявку, а шлём обычным текстом, как notifyNewLead.
+ */
+export async function notifyNewLeadWithPhoto(lead: LeadNotice, photo: Buffer): Promise<void> {
+  if (!TOKEN) return;
+
+  const chats = recipients();
+  if (chats.length === 0) return;
+
+  // Telegram caption ограничен 1024 символами.
+  const caption = buildLeadRows(lead).join("\n").slice(0, 1024);
+
+  const results = await Promise.allSettled(
+    chats.map(async (chat_id) => {
+      const form = new FormData();
+      form.append("chat_id", String(chat_id));
+      form.append("caption", caption);
+      form.append("parse_mode", "HTML");
+      form.append("photo", new Blob([Uint8Array.from(photo)], { type: "image/png" }), "design.png");
+
+      const res = await fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, {
+        method: "POST",
+        body: form,
+      });
+      if (!res.ok) throw new Error(`sendPhoto ${res.status}`);
+    }),
+  );
+
+  const failed = results.filter((r) => r.status === "rejected").length;
+  if (failed === chats.length) {
+    console.warn("[telegram] sendPhoto не удался ни одному получателю — шлём текстом");
+    await notifyTelegram(caption);
+  } else if (failed) {
+    console.warn(`[telegram] фото с дизайном не доставлено получателям: ${failed}`);
+  }
 }

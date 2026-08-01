@@ -29,7 +29,12 @@ export type LeadEmailData = {
   deadline?: string;
 };
 
-export async function sendManagerNotification(data: LeadEmailData): Promise<boolean> {
+export type EmailAttachment = { filename: string; content: Buffer };
+
+export async function sendManagerNotification(
+  data: LeadEmailData,
+  attachments?: EmailAttachment[],
+): Promise<boolean> {
   const transporter = getTransporter();
   if (!transporter) {
     console.warn("[email] SMTP не настроен — письмо менеджеру не отправлено");
@@ -56,6 +61,7 @@ CRM: http://localhost:3000/admin/leads`;
       to: MANAGER_EMAIL,
       subject: `Заявка: ${data.company || data.name}`,
       text,
+      attachments,
     });
     return true;
   } catch (err) {

@@ -12,6 +12,7 @@ export const mainNav: NavItem[] = [
   // Магазин — отдельное приложение за тем же доменом,
   // поэтому нужен обычный переход, а не клиентский роутинг Next
   { label: "Магазин", href: "/shop", external: true },
+  { label: "Конструктор", href: "/constructor" },
   { label: "Что производим", href: "/#assortment" },
   { label: "Что делаем", href: "/#services" },
   { label: "Прайс", href: "/#price" },
