@@ -4,9 +4,20 @@ import { useState, type FormEvent } from "react";
 
 type State = "idle" | "sending" | "done" | "error";
 
-export function BirkaForm() {
+type Props = {
+  /** Метка источника в CRM — разные страницы шлют разные значения */
+  source?: "birka" | "qr";
+};
+
+const SOURCE_LABELS: Record<NonNullable<Props["source"]>, string> = {
+  birka: "БИРКА",
+  qr: "QR",
+};
+
+export function BirkaForm({ source = "birka" }: Props) {
   const [form, setForm] = useState({ name: "", phone: "", telegram: "", comment: "" });
   const [state, setState] = useState<State>("idle");
+  const label = SOURCE_LABELS[source];
 
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
@@ -23,13 +34,12 @@ export function BirkaForm() {
           name: form.name.trim(),
           phone: form.phone.trim(),
           telegram: form.telegram.trim(),
-          source: "birka",
-          // Помечаем источник — чтобы в CRM было видно, что пришли с бирки
-          productType: "Заявка с бирки",
+          source,
+          productType: `Заявка с ${label}`,
           quantity: "1",
           comment: form.comment.trim()
-            ? `[БИРКА] ${form.comment.trim()}`
-            : "[БИРКА] Заявка со страницы на бирке",
+            ? `[${label}] ${form.comment.trim()}`
+            : `[${label}] Заявка со страницы ${label}`,
         }),
       });
       if (!res.ok) throw new Error();
