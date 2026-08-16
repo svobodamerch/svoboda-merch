@@ -67,6 +67,8 @@ export default function OrderDetailPage() {
   const [data, setData] = useState<Detail | null>(null);
   const [rows, setRows] = useState<ItemRow[]>([]);
   const [savingItems, setSavingItems] = useState(false);
+  const [paymentForm, setPaymentForm] = useState({ direction: "in", amount: "", comment: "" });
+  const [savingPayment, setSavingPayment] = useState(false);
 
   const loadOrder = () => {
     fetch(`/api/crm/orders/${id}`)
@@ -136,6 +138,23 @@ export default function OrderDetailPage() {
   };
 
   const total = rows.reduce((sum, r) => sum + rowTotal(r), 0);
+
+  const submitPayment = async () => {
+    if (!data || !paymentForm.amount) return;
+    setSavingPayment(true);
+    await fetch("/api/crm/payments", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ...paymentForm,
+        contractorId: data.order.contractor_id,
+        orderId: data.order.id,
+      }),
+    });
+    setPaymentForm({ direction: "in", amount: "", comment: "" });
+    setSavingPayment(false);
+    loadOrder();
+  };
 
   if (!data) return <p className="label text-muted">Загрузка…</p>;
   const { order, payments, activity } = data;
@@ -264,6 +283,39 @@ export default function OrderDetailPage() {
 
       <div>
         <p className="label text-accent mb-4">Платежи по заказу</p>
+
+        <div className="mb-4 grid grid-cols-2 gap-2 rounded-xl bg-surface p-3 sm:grid-cols-[120px_1fr_1fr_auto]">
+          <select
+            className={field}
+            value={paymentForm.direction}
+            onChange={(e) => setPaymentForm((f) => ({ ...f, direction: e.target.value }))}
+          >
+            <option value="in">Нам заплатили</option>
+            <option value="out">Мы заплатили</option>
+          </select>
+          <input
+            className={field}
+            placeholder="Сумма, ₽"
+            inputMode="decimal"
+            value={paymentForm.amount}
+            onChange={(e) => setPaymentForm((f) => ({ ...f, amount: e.target.value }))}
+          />
+          <input
+            className={field}
+            placeholder="Комментарий"
+            value={paymentForm.comment}
+            onChange={(e) => setPaymentForm((f) => ({ ...f, comment: e.target.value }))}
+          />
+          <button
+            type="button"
+            onClick={submitPayment}
+            disabled={savingPayment || !paymentForm.amount}
+            className="pill label bg-accent text-bg hover:bg-accent-soft disabled:bg-line disabled:text-muted"
+          >
+            {savingPayment ? "…" : "Записать"}
+          </button>
+        </div>
+
         <ul className="divide-y divide-line border-t border-line">
           {payments.map((p) => (
             <li key={p.id} className="flex items-center justify-between py-3">

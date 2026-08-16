@@ -36,6 +36,7 @@ function ensureTaskLinkColumns(db: Database.Database) {
   if (!cols.includes("contractor_id")) db.exec("ALTER TABLE tasks ADD COLUMN contractor_id INTEGER REFERENCES contractors(id)");
   if (!cols.includes("order_id")) db.exec("ALTER TABLE tasks ADD COLUMN order_id INTEGER REFERENCES orders(id)");
   if (!cols.includes("reminded_at")) db.exec("ALTER TABLE tasks ADD COLUMN reminded_at TEXT");
+  if (!cols.includes("amount_kopecks")) db.exec("ALTER TABLE tasks ADD COLUMN amount_kopecks INTEGER");
 }
 
 function initSchema(db: Database.Database) {
@@ -161,6 +162,7 @@ function initSchema(db: Database.Database) {
       entity_id INTEGER,
       contractor_id INTEGER REFERENCES contractors(id),
       order_id INTEGER REFERENCES orders(id),
+      amount_kopecks INTEGER,
       reminded_at TEXT,
       source TEXT NOT NULL DEFAULT 'manual',
       created_by TEXT,
@@ -993,6 +995,7 @@ export type Task = {
   entity_id: number | null;
   contractor_id: number | null;
   order_id: number | null;
+  amount_kopecks: number | null;
   reminded_at: string | null;
   source: string;
   created_by: string | null;
@@ -1014,6 +1017,7 @@ export type TaskInput = {
   entity_id?: number;
   contractor_id?: number;
   order_id?: number;
+  amount_kopecks?: number;
   source?: string;
 };
 
@@ -1021,8 +1025,8 @@ export function createTask(input: TaskInput, actor?: string): Task {
   const db = getCrmDb();
   const task = db
     .prepare(
-      `INSERT INTO tasks (title, description, due_at, entity_type, entity_id, contractor_id, order_id, source, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `INSERT INTO tasks (title, description, due_at, entity_type, entity_id, contractor_id, order_id, amount_kopecks, source, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        RETURNING *`,
     )
     .get(
@@ -1033,6 +1037,7 @@ export function createTask(input: TaskInput, actor?: string): Task {
       input.entity_id || null,
       input.contractor_id || null,
       input.order_id || null,
+      input.amount_kopecks ?? null,
       input.source || "manual",
       actor || null,
     ) as Task;

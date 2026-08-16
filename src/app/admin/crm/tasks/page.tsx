@@ -13,11 +13,16 @@ type Task = {
   created_by: string | null;
   contractor_id: number | null;
   order_id: number | null;
+  amount_kopecks: number | null;
   contractor_name: string | null;
   order_title: string | null;
 };
 type Contractor = { id: number; name: string };
 type Order = { id: number; title: string };
+
+function money(kopecks: number): string {
+  return `${(kopecks / 100).toLocaleString("ru-RU", { maximumFractionDigits: 2 })} ₽`;
+}
 
 const field =
   "w-full rounded-xl border border-line bg-bg px-4 py-3 text-[13px] text-ink outline-none focus:border-accent";
@@ -32,6 +37,7 @@ export default function TasksPage() {
     dueAt: "",
     contractorId: "",
     orderId: "",
+    amount: "",
   });
   const [saving, setSaving] = useState(false);
 
@@ -58,7 +64,7 @@ export default function TasksPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(form),
     });
-    setForm({ title: "", description: "", dueAt: "", contractorId: "", orderId: "" });
+    setForm({ title: "", description: "", dueAt: "", contractorId: "", orderId: "", amount: "" });
     setSaving(false);
     load();
   };
@@ -138,6 +144,13 @@ export default function TasksPage() {
             </option>
           ))}
         </select>
+        <input
+          className={field}
+          placeholder="Сумма, ₽ — необязательно"
+          inputMode="decimal"
+          value={form.amount}
+          onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))}
+        />
         <button
           type="submit"
           disabled={saving || !form.title.trim()}
@@ -167,7 +180,10 @@ export default function TasksPage() {
                   {links(t)}
                 </div>
               </div>
-              {t.due_at && <span className="label text-muted shrink-0">{t.due_at}</span>}
+              <div className="flex shrink-0 flex-col items-end gap-0.5">
+                {t.due_at && <span className="label text-muted">{t.due_at}</span>}
+                {t.amount_kopecks != null && <span className="label text-accent">{money(t.amount_kopecks)}</span>}
+              </div>
             </li>
           ))}
         </ul>

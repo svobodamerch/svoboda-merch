@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createTask, getTasks, type TaskStatus } from "@/lib/crm/db";
 import { getCurrentActor } from "@/lib/crm/current-user";
+import { toKopecks } from "@/lib/crm/format";
 
 export async function GET(request: NextRequest) {
   const status = request.nextUrl.searchParams.get("status") as TaskStatus | null;
@@ -22,6 +23,7 @@ export async function POST(request: NextRequest) {
       due_at: String(body.dueAt || "").trim() || undefined,
       contractor_id: body.contractorId ? Number(body.contractorId) : undefined,
       order_id: body.orderId ? Number(body.orderId) : undefined,
+      amount_kopecks: body.amount ? toKopecks(body.amount) : undefined,
       source: "manual",
     },
     actor,
