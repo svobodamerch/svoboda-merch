@@ -147,6 +147,20 @@ function initSchema(db: Database.Database) {
     );
     CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
     CREATE INDEX IF NOT EXISTS idx_tasks_due ON tasks(due_at);
+
+    CREATE TABLE IF NOT EXISTS contractor_services (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      contractor_id INTEGER NOT NULL REFERENCES contractors(id),
+      title TEXT NOT NULL,
+      description TEXT,
+      cost_kopecks INTEGER NOT NULL DEFAULT 0,
+      sell_price_kopecks INTEGER,
+      lead_time TEXT,
+      notes TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_contractor_services_contractor ON contractor_services(contractor_id);
   `);
 }
 
@@ -354,6 +368,95 @@ export function getContractorBalance(id: number): number {
       .get(id) as { sum: number }
   ).sum;
   return ordersTotal - paymentsIn - paymentsOut;
+}
+
+// ---------- Работы контрагента (справочник цен) ----------
+
+export type ContractorService = {
+  id: number;
+  contractor_id: number;
+  title: string;
+  description: string | null;
+  cost_kopecks: number;
+  sell_price_kopecks: number | null;
+  lead_time: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ContractorServiceInput = {
+  title: string;
+  description?: string;
+  cost_kopecks: number;
+  sell_price_kopecks?: number;
+  lead_time?: string;
+  notes?: string;
+};
+
+export function getContractorServices(contractorId: number): ContractorService[] {
+  const db = getCrmDb();
+  return db
+    .prepare(`SELECT * FROM contractor_services WHERE contractor_id = ? ORDER BY title`)
+    .all(contractorId) as ContractorService[];
+}
+
+export function createContractorService(
+  contractorId: number,
+  input: ContractorServiceInput,
+  actor?: string,
+): ContractorService {
+  const db = getCrmDb();
+  const service = db
+    .prepare(
+      `INSERT INTO contractor_services (contractor_id, title, description, cost_kopecks, sell_price_kopecks, lead_time, notes)
+       VALUES (?, ?, ?, ?, ?, ?, ?)
+       RETURNING *`,
+    )
+    .get(
+      contractorId,
+      input.title,
+      input.description || null,
+      input.cost_kopecks,
+      input.sell_price_kopecks ?? null,
+      input.lead_time || null,
+      input.notes || null,
+    ) as ContractorService;
+
+  logActivity("contractor", contractorId, "service_added", `Добавлена работа «${service.title}»`, actor);
+  return service;
+}
+
+export function updateContractorService(
+  id: number,
+  input: Partial<ContractorServiceInput>,
+): ContractorService | undefined {
+  const db = getCrmDb();
+  const current = db.prepare(`SELECT * FROM contractor_services WHERE id = ?`).get(id) as
+    | ContractorService
+    | undefined;
+  if (!current) return undefined;
+
+  db.prepare(
+    `UPDATE contractor_services SET
+      title = ?, description = ?, cost_kopecks = ?, sell_price_kopecks = ?, lead_time = ?, notes = ?,
+      updated_at = datetime('now')
+     WHERE id = ?`,
+  ).run(
+    input.title ?? current.title,
+    input.description ?? current.description,
+    input.cost_kopecks ?? current.cost_kopecks,
+    input.sell_price_kopecks ?? current.sell_price_kopecks,
+    input.lead_time ?? current.lead_time,
+    input.notes ?? current.notes,
+    id,
+  );
+  return db.prepare(`SELECT * FROM contractor_services WHERE id = ?`).get(id) as ContractorService;
+}
+
+export function deleteContractorService(id: number): void {
+  const db = getCrmDb();
+  db.prepare(`DELETE FROM contractor_services WHERE id = ?`).run(id);
 }
 
 // ---------- Заказы ----------

@@ -3,6 +3,7 @@ import {
   getActivity,
   getContractorBalance,
   getContractorById,
+  getContractorServices,
   getOrdersByContractor,
   getPaymentsByContractor,
   updateContractor,
@@ -20,6 +21,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     balanceKopecks: getContractorBalance(id),
     orders: getOrdersByContractor(id),
     payments: getPaymentsByContractor(id),
+    services: getContractorServices(id),
     activity: getActivity("contractor", id),
   });
 }
