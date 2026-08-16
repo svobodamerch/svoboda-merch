@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getPaymentsByMonth } from "@/lib/crm/db";
+import { getPaymentsByMonth, getExpensesByCategory } from "@/lib/crm/db";
 import { getMoneyTrekerData } from "@/lib/moneyTreker";
 
 /** P&L: сделки CRM (свои платежи) + бизнес-доходы/расходы из Money Treker, по месяцам */
@@ -36,17 +36,29 @@ export async function GET() {
     };
   });
 
-  const categories = mt.byMonth.reduce<Record<string, number>>((acc, r) => {
+  const mtCategories = mt.byMonth.reduce<Record<string, number>>((acc, r) => {
     if (r.type !== "expense") return acc;
     acc[r.category] = (acc[r.category] || 0) + r.total;
     return acc;
   }, {});
 
+  const combined = new Map<string, { totalKopecks: number; kind?: "fixed" | "variable" }>();
+  for (const [category, total] of Object.entries(mtCategories)) {
+    combined.set(category, { totalKopecks: Math.round(total * 100) });
+  }
+  for (const c of getExpensesByCategory()) {
+    const existing = combined.get(c.category);
+    combined.set(c.category, {
+      totalKopecks: (existing?.totalKopecks || 0) + c.total_kopecks,
+      kind: c.kind,
+    });
+  }
+
   return NextResponse.json({
     months: rows,
     moneyTrekerGeneratedAt: mt.generatedAt,
-    expenseCategories: Object.entries(categories)
-      .map(([category, total]) => ({ category, totalKopecks: Math.round(total * 100) }))
+    expenseCategories: [...combined.entries()]
+      .map(([category, v]) => ({ category, totalKopecks: v.totalKopecks, kind: v.kind }))
       .sort((a, b) => b.totalKopecks - a.totalKopecks),
   });
 }

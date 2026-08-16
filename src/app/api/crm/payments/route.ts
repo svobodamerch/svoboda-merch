@@ -9,13 +9,14 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
-  const contractorId = Number(body.contractorId);
+  const contractorId = body.contractorId ? Number(body.contractorId) : undefined;
+  const categoryId = body.categoryId ? Number(body.categoryId) : undefined;
   const direction = body.direction as PaymentDirection;
   const amount = toKopecks(body.amount ?? 0);
 
-  if (!contractorId || (direction !== "in" && direction !== "out") || amount <= 0) {
+  if ((!contractorId && !categoryId) || (direction !== "in" && direction !== "out") || amount <= 0) {
     return NextResponse.json(
-      { error: "Укажите контрагента, направление и сумму больше нуля" },
+      { error: "Укажите контрагента или категорию расхода, направление и сумму больше нуля" },
       { status: 400 },
     );
   }
@@ -24,6 +25,7 @@ export async function POST(request: NextRequest) {
   const payment = createPayment(
     {
       contractor_id: contractorId,
+      category_id: categoryId,
       order_id: body.orderId ? Number(body.orderId) : undefined,
       direction,
       amount_kopecks: amount,

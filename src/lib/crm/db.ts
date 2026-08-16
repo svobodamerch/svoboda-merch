@@ -17,7 +17,51 @@ export function getCrmDb(): Database.Database {
   initSchema(db);
   ensureTaskLinkColumns(db);
   ensureContractorServiceProductColumn(db);
+  ensurePaymentsCategoryColumn(db);
+  db.exec("CREATE INDEX IF NOT EXISTS idx_payments_category ON payments(category_id)");
   return db;
+}
+
+/**
+ * payments.contractor_id был NOT NULL — платёж без контрагента (банковская
+ * комиссия, курьер и т.п.) не мог существовать. SQLite не даёт ослабить
+ * NOT NULL через ALTER, поэтому на уже существующих базах пересобираем
+ * таблицу: новая с contractor_id NULL + category_id, копируем данные,
+ * подменяем. На новых базах initSchema уже создаёт её такой — миграция
+ * тут не сработает (contractor_id там сразу NULL-able).
+ */
+function ensurePaymentsCategoryColumn(db: Database.Database) {
+  const cols = db.prepare("PRAGMA table_info(payments)").all() as { name: string; notnull: number }[];
+  const contractorCol = cols.find((c) => c.name === "contractor_id");
+  const hasCategoryCol = cols.some((c) => c.name === "category_id");
+  if (hasCategoryCol && contractorCol && contractorCol.notnull === 0) return;
+
+  const tx = db.transaction(() => {
+    db.exec(`
+      CREATE TABLE payments_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        contractor_id INTEGER REFERENCES contractors(id),
+        category_id INTEGER REFERENCES expense_categories(id),
+        order_id INTEGER REFERENCES orders(id),
+        direction TEXT NOT NULL,
+        amount_kopecks INTEGER NOT NULL,
+        method TEXT NOT NULL DEFAULT 'transfer',
+        comment TEXT,
+        paid_at TEXT NOT NULL DEFAULT (datetime('now')),
+        source TEXT NOT NULL DEFAULT 'manual',
+        created_by TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      INSERT INTO payments_new (id, contractor_id, order_id, direction, amount_kopecks, method, comment, paid_at, source, created_by, created_at)
+        SELECT id, contractor_id, order_id, direction, amount_kopecks, method, comment, paid_at, source, created_by, created_at FROM payments;
+      DROP TABLE payments;
+      ALTER TABLE payments_new RENAME TO payments;
+      CREATE INDEX IF NOT EXISTS idx_payments_contractor ON payments(contractor_id);
+      CREATE INDEX IF NOT EXISTS idx_payments_order ON payments(order_id);
+      CREATE INDEX IF NOT EXISTS idx_payments_category ON payments(category_id);
+    `);
+  });
+  tx();
 }
 
 /** contractor_services появилась раньше product_id — добавляем на уже существующих базах */
@@ -82,9 +126,17 @@ function initSchema(db: Database.Database) {
     CREATE INDEX IF NOT EXISTS idx_orders_contractor ON orders(contractor_id);
     CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
 
+    CREATE TABLE IF NOT EXISTS expense_categories (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL UNIQUE,
+      kind TEXT NOT NULL DEFAULT 'variable',
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
     CREATE TABLE IF NOT EXISTS payments (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      contractor_id INTEGER NOT NULL REFERENCES contractors(id),
+      contractor_id INTEGER REFERENCES contractors(id),
+      category_id INTEGER REFERENCES expense_categories(id),
       order_id INTEGER REFERENCES orders(id),
       direction TEXT NOT NULL,
       amount_kopecks INTEGER NOT NULL,
@@ -245,7 +297,8 @@ export type Order = {
 
 export type Payment = {
   id: number;
-  contractor_id: number;
+  contractor_id: number | null;
+  category_id: number | null;
   order_id: number | null;
   direction: PaymentDirection;
   amount_kopecks: number;
@@ -406,7 +459,11 @@ export function getContractorBalance(id: number): number {
       )
       .get(id) as { sum: number }
   ).sum;
-  return ordersTotal - paymentsIn - paymentsOut;
+  // Заказ увеличивает то, что нам должны; входящая оплата это гасит.
+  // Исходящая оплата — мы отдали деньги — тоже гасит долг (или уходит в плюс,
+  // если платили без встречного заказа: тогда это на нашей стороне, до
+  // выяснения — например, доплатить, завести заказ или это аванс).
+  return ordersTotal - paymentsIn + paymentsOut;
 }
 
 // ---------- Работы контрагента (справочник цен) ----------
@@ -641,7 +698,8 @@ export function updateOrderStatus(id: number, status: OrderStatus, actor?: strin
 // ---------- Платежи ----------
 
 export type PaymentInput = {
-  contractor_id: number;
+  contractor_id?: number;
+  category_id?: number;
   order_id?: number;
   direction: PaymentDirection;
   amount_kopecks: number;
@@ -654,12 +712,13 @@ export function createPayment(input: PaymentInput, actor?: string): Payment {
   const db = getCrmDb();
   const payment = db
     .prepare(
-      `INSERT INTO payments (contractor_id, order_id, direction, amount_kopecks, method, comment, source, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `INSERT INTO payments (contractor_id, category_id, order_id, direction, amount_kopecks, method, comment, source, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
        RETURNING *`,
     )
     .get(
-      input.contractor_id,
+      input.contractor_id || null,
+      input.category_id || null,
       input.order_id || null,
       input.direction,
       input.amount_kopecks,
@@ -674,14 +733,52 @@ export function createPayment(input: PaymentInput, actor?: string): Payment {
   if (payment.order_id) {
     logActivity("order", payment.order_id, "payment_recorded", message, actor);
   }
-  logActivity("contractor", payment.contractor_id, "payment_recorded", message, actor);
+  if (payment.contractor_id) {
+    logActivity("contractor", payment.contractor_id, "payment_recorded", message, actor);
+  }
 
   return payment;
 }
 
-export function getPayments(): Payment[] {
+// ---------- Категории расходов ----------
+
+export type ExpenseCategoryKind = "fixed" | "variable";
+export type ExpenseCategory = { id: number; name: string; kind: ExpenseCategoryKind; created_at: string };
+
+export function getExpenseCategories(): ExpenseCategory[] {
   const db = getCrmDb();
-  return db.prepare(`SELECT * FROM payments ORDER BY paid_at DESC`).all() as Payment[];
+  return db.prepare(`SELECT * FROM expense_categories ORDER BY name`).all() as ExpenseCategory[];
+}
+
+export function getOrCreateExpenseCategory(name: string, kind: ExpenseCategoryKind = "variable"): ExpenseCategory {
+  const db = getCrmDb();
+  const existing = db.prepare(`SELECT * FROM expense_categories WHERE name = ?`).get(name) as
+    | ExpenseCategory
+    | undefined;
+  if (existing) return existing;
+  return db
+    .prepare(`INSERT INTO expense_categories (name, kind) VALUES (?, ?) RETURNING *`)
+    .get(name, kind) as ExpenseCategory;
+}
+
+export function deleteExpenseCategory(id: number): void {
+  const db = getCrmDb();
+  db.prepare(`DELETE FROM expense_categories WHERE id = ?`).run(id);
+}
+
+export type PaymentWithLabels = Payment & { contractor_name: string | null; category_name: string | null };
+
+export function getPayments(): PaymentWithLabels[] {
+  const db = getCrmDb();
+  return db
+    .prepare(
+      `SELECT p.*, c.name as contractor_name, ec.name as category_name
+       FROM payments p
+       LEFT JOIN contractors c ON c.id = p.contractor_id
+       LEFT JOIN expense_categories ec ON ec.id = p.category_id
+       ORDER BY p.paid_at DESC`,
+    )
+    .all() as PaymentWithLabels[];
 }
 
 export type MonthlyPaymentTotal = { month: string; direction: PaymentDirection; total_kopecks: number };
@@ -695,6 +792,21 @@ export function getPaymentsByMonth(): MonthlyPaymentTotal[] {
        FROM payments GROUP BY month, direction ORDER BY month`,
     )
     .all() as MonthlyPaymentTotal[];
+}
+
+export type CategoryTotal = { category: string; kind: ExpenseCategoryKind; total_kopecks: number };
+
+/** Расходы CRM (не Money Treker) по статьям — только те, что заведены через CRM/бота */
+export function getExpensesByCategory(): CategoryTotal[] {
+  const db = getCrmDb();
+  return db
+    .prepare(
+      `SELECT ec.name as category, ec.kind as kind, SUM(p.amount_kopecks) as total_kopecks
+       FROM payments p JOIN expense_categories ec ON ec.id = p.category_id
+       WHERE p.direction = 'out'
+       GROUP BY ec.id ORDER BY total_kopecks DESC`,
+    )
+    .all() as CategoryTotal[];
 }
 
 export function getPaymentsByContractor(contractorId: number): Payment[] {
