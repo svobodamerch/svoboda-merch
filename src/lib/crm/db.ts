@@ -130,6 +130,23 @@ function initSchema(db: Database.Database) {
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
     CREATE INDEX IF NOT EXISTS idx_proposal_events_proposal ON proposal_events(proposal_id);
+
+    CREATE TABLE IF NOT EXISTS tasks (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT NOT NULL,
+      description TEXT,
+      status TEXT NOT NULL DEFAULT 'open',
+      due_at TEXT,
+      entity_type TEXT,
+      entity_id INTEGER,
+      source TEXT NOT NULL DEFAULT 'manual',
+      created_by TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      done_at TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
+    CREATE INDEX IF NOT EXISTS idx_tasks_due ON tasks(due_at);
   `);
 }
 
@@ -614,6 +631,25 @@ export function getProposalById(id: number): Proposal | undefined {
   return db.prepare(`SELECT * FROM proposals WHERE id = ?`).get(id) as Proposal | undefined;
 }
 
+export type ProposalListEntry = Proposal & {
+  order_title: string;
+  order_amount_kopecks: number;
+  contractor_name: string;
+};
+
+export function getProposals(): ProposalListEntry[] {
+  const db = getCrmDb();
+  return db
+    .prepare(
+      `SELECT p.*, o.title as order_title, o.amount_kopecks as order_amount_kopecks, c.name as contractor_name
+       FROM proposals p
+       JOIN orders o ON o.id = p.order_id
+       JOIN contractors c ON c.id = o.contractor_id
+       ORDER BY p.updated_at DESC`,
+    )
+    .all() as ProposalListEntry[];
+}
+
 /** Один активный КП на заказ — если уже есть, возвращает его как есть */
 export function createProposal(orderId: number, input: ProposalInput, actor?: string): Proposal {
   const existing = getProposalByOrderId(orderId);
@@ -708,6 +744,85 @@ export function markProposalAccepted(id: number): Proposal | undefined {
   logProposalEvent(id, "accepted");
   logActivity("order", proposal.order_id, "proposal_accepted", "Клиент принял КП");
   return getProposalById(id);
+}
+
+// ---------- Задачи ----------
+
+export type TaskStatus = "open" | "done";
+export type TaskEntityType = "order" | "contractor";
+
+export type Task = {
+  id: number;
+  title: string;
+  description: string | null;
+  status: TaskStatus;
+  due_at: string | null;
+  entity_type: TaskEntityType | null;
+  entity_id: number | null;
+  source: string;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  done_at: string | null;
+};
+
+export type TaskInput = {
+  title: string;
+  description?: string;
+  due_at?: string;
+  entity_type?: TaskEntityType;
+  entity_id?: number;
+  source?: string;
+};
+
+export function createTask(input: TaskInput, actor?: string): Task {
+  const db = getCrmDb();
+  const task = db
+    .prepare(
+      `INSERT INTO tasks (title, description, due_at, entity_type, entity_id, source, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?)
+       RETURNING *`,
+    )
+    .get(
+      input.title,
+      input.description || null,
+      input.due_at || null,
+      input.entity_type || null,
+      input.entity_id || null,
+      input.source || "manual",
+      actor || null,
+    ) as Task;
+
+  if (task.entity_type && task.entity_id) {
+    logActivity(task.entity_type, task.entity_id, "task_created", `Задача: «${task.title}»`, actor);
+  }
+  return task;
+}
+
+export function getTasks(status?: TaskStatus): Task[] {
+  const db = getCrmDb();
+  if (status) {
+    return db.prepare(`SELECT * FROM tasks WHERE status = ? ORDER BY due_at IS NULL, due_at, created_at DESC`).all(status) as Task[];
+  }
+  return db.prepare(`SELECT * FROM tasks ORDER BY status, due_at IS NULL, due_at, created_at DESC`).all() as Task[];
+}
+
+/** Задачи и заказы с распознаваемым сроком — источник данных календаря */
+export function getTasksWithDueDate(): Task[] {
+  const db = getCrmDb();
+  return db.prepare(`SELECT * FROM tasks WHERE due_at IS NOT NULL AND status = 'open' ORDER BY due_at`).all() as Task[];
+}
+
+export function completeTask(id: number): Task | undefined {
+  const db = getCrmDb();
+  db.prepare(`UPDATE tasks SET status = 'done', done_at = datetime('now'), updated_at = datetime('now') WHERE id = ?`).run(id);
+  return db.prepare(`SELECT * FROM tasks WHERE id = ?`).get(id) as Task | undefined;
+}
+
+export function reopenTask(id: number): Task | undefined {
+  const db = getCrmDb();
+  db.prepare(`UPDATE tasks SET status = 'open', done_at = NULL, updated_at = datetime('now') WHERE id = ?`).run(id);
+  return db.prepare(`SELECT * FROM tasks WHERE id = ?`).get(id) as Task | undefined;
 }
 
 // ---------- Пользователи CRM ----------

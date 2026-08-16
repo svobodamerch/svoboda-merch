@@ -33,7 +33,7 @@ export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [contractors, setContractors] = useState<Contractor[]>([]);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ contractorId: "", title: "", amount: "", description: "" });
+  const [form, setForm] = useState({ contractorId: "", title: "", amount: "", description: "", deadline: "" });
   const [saving, setSaving] = useState(false);
 
   const load = () => {
@@ -58,7 +58,7 @@ export default function OrdersPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...form, contractorId: Number(form.contractorId) }),
     });
-    setForm({ contractorId: "", title: "", amount: "", description: "" });
+    setForm({ contractorId: "", title: "", amount: "", description: "", deadline: "" });
     setShowForm(false);
     setSaving(false);
     load();
@@ -110,6 +110,15 @@ export default function OrdersPage() {
             value={form.description}
             onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
           />
+          <div>
+            <label className="label text-muted mb-1.5 block">Срок сдачи</label>
+            <input
+              className={field}
+              type="date"
+              value={form.deadline}
+              onChange={(e) => setForm((f) => ({ ...f, deadline: e.target.value }))}
+            />
+          </div>
           <button
             type="submit"
             disabled={saving || !form.contractorId || !form.title.trim()}
