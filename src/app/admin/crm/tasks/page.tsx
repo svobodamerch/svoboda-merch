@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
 
 type Task = {
@@ -10,20 +11,40 @@ type Task = {
   due_at: string | null;
   source: string;
   created_by: string | null;
+  contractor_id: number | null;
+  order_id: number | null;
+  contractor_name: string | null;
+  order_title: string | null;
 };
+type Contractor = { id: number; name: string };
+type Order = { id: number; title: string };
 
 const field =
   "w-full rounded-xl border border-line bg-bg px-4 py-3 text-[13px] text-ink outline-none focus:border-accent";
 
 export default function TasksPage() {
   const [tasks, setTasks] = useState<Task[] | null>(null);
-  const [form, setForm] = useState({ title: "", description: "", dueAt: "" });
+  const [contractors, setContractors] = useState<Contractor[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [form, setForm] = useState({
+    title: "",
+    description: "",
+    dueAt: "",
+    contractorId: "",
+    orderId: "",
+  });
   const [saving, setSaving] = useState(false);
 
   const load = () => {
     fetch("/api/crm/tasks")
       .then((r) => r.json())
       .then((d) => setTasks(d.tasks));
+    fetch("/api/crm/contractors")
+      .then((r) => r.json())
+      .then((d) => setContractors(d.contractors));
+    fetch("/api/crm/orders")
+      .then((r) => r.json())
+      .then((d) => setOrders(d.orders));
   };
 
   useEffect(load, []);
@@ -37,7 +58,7 @@ export default function TasksPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(form),
     });
-    setForm({ title: "", description: "", dueAt: "" });
+    setForm({ title: "", description: "", dueAt: "", contractorId: "", orderId: "" });
     setSaving(false);
     load();
   };
@@ -54,6 +75,21 @@ export default function TasksPage() {
   if (!tasks) return <p className="label text-muted">Загрузка…</p>;
   const open = tasks.filter((t) => t.status === "open");
   const done = tasks.filter((t) => t.status === "done");
+
+  const links = (t: Task) => (
+    <>
+      {t.contractor_id && (
+        <Link href={`/admin/crm/contractors/${t.contractor_id}`} className="label text-accent hover:underline">
+          {t.contractor_name}
+        </Link>
+      )}
+      {t.order_id && (
+        <Link href={`/admin/crm/orders/${t.order_id}`} className="label text-accent hover:underline">
+          {t.order_title}
+        </Link>
+      )}
+    </>
+  );
 
   return (
     <div className="space-y-8">
@@ -78,6 +114,30 @@ export default function TasksPage() {
           value={form.description}
           onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
         />
+        <select
+          className={field}
+          value={form.contractorId}
+          onChange={(e) => setForm((f) => ({ ...f, contractorId: e.target.value }))}
+        >
+          <option value="">Контрагент — необязательно</option>
+          {contractors.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </select>
+        <select
+          className={field}
+          value={form.orderId}
+          onChange={(e) => setForm((f) => ({ ...f, orderId: e.target.value }))}
+        >
+          <option value="">Сделка — необязательно</option>
+          {orders.map((o) => (
+            <option key={o.id} value={o.id}>
+              {o.title}
+            </option>
+          ))}
+        </select>
         <button
           type="submit"
           disabled={saving || !form.title.trim()}
@@ -101,7 +161,11 @@ export default function TasksPage() {
               <div className="flex-1">
                 <p className="label text-ink">{t.title}</p>
                 {t.description && <p className="label text-muted mt-0.5">{t.description}</p>}
-                {t.source === "bot_voice" && <p className="label text-accent mt-0.5">из голосового</p>}
+                <div className="mt-0.5 flex flex-wrap gap-3">
+                  {t.source === "bot_voice" && <span className="label text-accent">из голосового</span>}
+                  {t.source === "bot_text" && <span className="label text-accent">из чата</span>}
+                  {links(t)}
+                </div>
               </div>
               {t.due_at && <span className="label text-muted shrink-0">{t.due_at}</span>}
             </li>

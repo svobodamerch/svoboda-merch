@@ -15,7 +15,16 @@ export function getCrmDb(): Database.Database {
   db = new Database(DB_PATH);
   db.pragma("journal_mode = WAL");
   initSchema(db);
+  ensureTaskLinkColumns(db);
   return db;
+}
+
+/** tasks появилась раньше contractor_id/order_id/reminded_at — добавляем на уже существующих базах */
+function ensureTaskLinkColumns(db: Database.Database) {
+  const cols = (db.prepare("PRAGMA table_info(tasks)").all() as { name: string }[]).map((c) => c.name);
+  if (!cols.includes("contractor_id")) db.exec("ALTER TABLE tasks ADD COLUMN contractor_id INTEGER REFERENCES contractors(id)");
+  if (!cols.includes("order_id")) db.exec("ALTER TABLE tasks ADD COLUMN order_id INTEGER REFERENCES orders(id)");
+  if (!cols.includes("reminded_at")) db.exec("ALTER TABLE tasks ADD COLUMN reminded_at TEXT");
 }
 
 function initSchema(db: Database.Database) {
@@ -139,6 +148,9 @@ function initSchema(db: Database.Database) {
       due_at TEXT,
       entity_type TEXT,
       entity_id INTEGER,
+      contractor_id INTEGER REFERENCES contractors(id),
+      order_id INTEGER REFERENCES orders(id),
+      reminded_at TEXT,
       source TEXT NOT NULL DEFAULT 'manual',
       created_by TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -862,11 +874,19 @@ export type Task = {
   due_at: string | null;
   entity_type: TaskEntityType | null;
   entity_id: number | null;
+  contractor_id: number | null;
+  order_id: number | null;
+  reminded_at: string | null;
   source: string;
   created_by: string | null;
   created_at: string;
   updated_at: string;
   done_at: string | null;
+};
+
+export type TaskWithLinks = Task & {
+  contractor_name: string | null;
+  order_title: string | null;
 };
 
 export type TaskInput = {
@@ -875,6 +895,8 @@ export type TaskInput = {
   due_at?: string;
   entity_type?: TaskEntityType;
   entity_id?: number;
+  contractor_id?: number;
+  order_id?: number;
   source?: string;
 };
 
@@ -882,8 +904,8 @@ export function createTask(input: TaskInput, actor?: string): Task {
   const db = getCrmDb();
   const task = db
     .prepare(
-      `INSERT INTO tasks (title, description, due_at, entity_type, entity_id, source, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?)
+      `INSERT INTO tasks (title, description, due_at, entity_type, entity_id, contractor_id, order_id, source, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
        RETURNING *`,
     )
     .get(
@@ -892,6 +914,8 @@ export function createTask(input: TaskInput, actor?: string): Task {
       input.due_at || null,
       input.entity_type || null,
       input.entity_id || null,
+      input.contractor_id || null,
+      input.order_id || null,
       input.source || "manual",
       actor || null,
     ) as Task;
@@ -899,21 +923,55 @@ export function createTask(input: TaskInput, actor?: string): Task {
   if (task.entity_type && task.entity_id) {
     logActivity(task.entity_type, task.entity_id, "task_created", `Задача: «${task.title}»`, actor);
   }
+  if (task.contractor_id) {
+    logActivity("contractor", task.contractor_id, "task_created", `Задача: «${task.title}»`, actor);
+  }
+  if (task.order_id) {
+    logActivity("order", task.order_id, "task_created", `Задача: «${task.title}»`, actor);
+  }
   return task;
 }
 
-export function getTasks(status?: TaskStatus): Task[] {
+const TASK_SELECT = `
+  SELECT t.*, c.name as contractor_name, o.title as order_title
+  FROM tasks t
+  LEFT JOIN contractors c ON c.id = t.contractor_id
+  LEFT JOIN orders o ON o.id = t.order_id
+`;
+
+export function getTasks(status?: TaskStatus): TaskWithLinks[] {
   const db = getCrmDb();
   if (status) {
-    return db.prepare(`SELECT * FROM tasks WHERE status = ? ORDER BY due_at IS NULL, due_at, created_at DESC`).all(status) as Task[];
+    return db
+      .prepare(`${TASK_SELECT} WHERE t.status = ? ORDER BY t.due_at IS NULL, t.due_at, t.created_at DESC`)
+      .all(status) as TaskWithLinks[];
   }
-  return db.prepare(`SELECT * FROM tasks ORDER BY status, due_at IS NULL, due_at, created_at DESC`).all() as Task[];
+  return db
+    .prepare(`${TASK_SELECT} ORDER BY t.status, t.due_at IS NULL, t.due_at, t.created_at DESC`)
+    .all() as TaskWithLinks[];
 }
 
 /** Задачи и заказы с распознаваемым сроком — источник данных календаря */
 export function getTasksWithDueDate(): Task[] {
   const db = getCrmDb();
   return db.prepare(`SELECT * FROM tasks WHERE due_at IS NOT NULL AND status = 'open' ORDER BY due_at`).all() as Task[];
+}
+
+/** Открытые задачи со сроком, для которых ещё не отправили напоминание */
+export function getDueTasks(): TaskWithLinks[] {
+  const db = getCrmDb();
+  return db
+    .prepare(
+      `${TASK_SELECT} WHERE t.status = 'open' AND t.due_at IS NOT NULL
+       AND t.due_at <= datetime('now') AND t.reminded_at IS NULL
+       ORDER BY t.due_at`,
+    )
+    .all() as TaskWithLinks[];
+}
+
+export function markTaskReminded(id: number): void {
+  const db = getCrmDb();
+  db.prepare(`UPDATE tasks SET reminded_at = datetime('now') WHERE id = ?`).run(id);
 }
 
 export function completeTask(id: number): Task | undefined {
