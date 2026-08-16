@@ -343,7 +343,7 @@ export default function ContractorDetailPage() {
 
       <div className="grid gap-8 sm:grid-cols-2">
         <div>
-          <p className="label text-accent mb-4">Заказы</p>
+          <p className="label text-accent mb-4">Сделки</p>
           <form onSubmit={submitOrder} className="mb-4 space-y-2 rounded-2xl bg-surface p-5">
             <input
               className={field}

@@ -7,8 +7,9 @@ import { Container } from "@/components/ui/Container";
 
 const tabs = [
   { href: "/admin/crm", label: "Дашборд" },
-  { href: "/admin/crm/orders", label: "Заказы" },
+  { href: "/admin/crm/orders", label: "Сделки" },
   { href: "/admin/crm/contractors", label: "Контрагенты" },
+  { href: "/admin/crm/products", label: "Товары" },
   { href: "/admin/crm/payments", label: "Деньги" },
   { href: "/admin/crm/proposals", label: "КП" },
   { href: "/admin/crm/tasks", label: "Задачи" },

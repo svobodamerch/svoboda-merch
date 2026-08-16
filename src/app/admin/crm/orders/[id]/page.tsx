@@ -144,7 +144,7 @@ export default function OrderDetailPage() {
     <div className="space-y-10">
       <div>
         <Link href="/admin/crm/orders" className="label text-muted hover:text-ink">
-          ← Заказы
+          ← Сделки
         </Link>
         <div className="mt-2 flex items-center justify-between">
           <p className="label-lg text-ink">{order.title}</p>

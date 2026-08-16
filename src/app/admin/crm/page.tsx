@@ -100,7 +100,7 @@ export default function CrmDashboardPage() {
                 <div>
                   <p className="label text-ink">{a.message}</p>
                   <p className="label text-muted">
-                    {a.entity_type === "order" ? "Заказ" : "Контрагент"} #{a.entity_id}
+                    {a.entity_type === "order" ? "Сделка" : "Контрагент"} #{a.entity_id}
                     {a.actor ? ` · ${a.actor}` : ""}
                   </p>
                 </div>

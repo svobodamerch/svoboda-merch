@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState, type DragEvent, type FormEvent } from "react";
 
 type Contractor = { id: number; name: string };
 type Order = {
@@ -13,14 +13,14 @@ type Order = {
   created_at: string;
 };
 
-const statusLabel: Record<string, string> = {
-  new: "Новый",
-  in_production: "В работе",
-  ready: "Готов",
-  shipped: "Отправлен",
-  done: "Выполнен",
-  cancelled: "Отменён",
-};
+const statuses: { value: string; label: string }[] = [
+  { value: "new", label: "Новый" },
+  { value: "in_production", label: "В работе" },
+  { value: "ready", label: "Готов" },
+  { value: "shipped", label: "Отправлен" },
+  { value: "done", label: "Выполнен" },
+  { value: "cancelled", label: "Отменён" },
+];
 
 function money(kopecks: number): string {
   return `${(kopecks / 100).toLocaleString("ru-RU", { maximumFractionDigits: 2 })} ₽`;
@@ -35,6 +35,7 @@ export default function OrdersPage() {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ contractorId: "", title: "", amount: "", description: "", deadline: "" });
   const [saving, setSaving] = useState(false);
+  const [dragOverStatus, setDragOverStatus] = useState<string | null>(null);
 
   const load = () => {
     fetch("/api/crm/orders")
@@ -64,10 +65,27 @@ export default function OrdersPage() {
     load();
   };
 
+  const moveOrder = async (orderId: number, status: string) => {
+    setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status } : o)));
+    await fetch(`/api/crm/orders/${orderId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status }),
+    });
+    load();
+  };
+
+  const onDrop = (e: DragEvent<HTMLDivElement>, status: string) => {
+    e.preventDefault();
+    setDragOverStatus(null);
+    const orderId = Number(e.dataTransfer.getData("text/order-id"));
+    if (orderId) moveOrder(orderId, status);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <p className="label-lg text-ink">Заказы</p>
+        <p className="label-lg text-ink">Сделки</p>
         <button
           type="button"
           onClick={() => setShowForm((v) => !v)}
@@ -93,7 +111,7 @@ export default function OrdersPage() {
           </select>
           <input
             className={field}
-            placeholder="Название заказа *"
+            placeholder="Название сделки *"
             value={form.title}
             onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
           />
@@ -129,22 +147,46 @@ export default function OrdersPage() {
         </form>
       )}
 
-      <ul className="divide-y divide-line border-t border-line">
-        {orders.map((o) => (
-          <li key={o.id}>
-            <Link href={`/admin/crm/orders/${o.id}`} className="flex items-center justify-between py-4 hover:bg-surface">
-              <div>
-                <p className="label text-ink">{o.title}</p>
-                <p className="label text-muted">
-                  {contractorName(o.contractor_id)} · {statusLabel[o.status] || o.status}
-                </p>
+      <div className="flex gap-4 overflow-x-auto pb-4">
+        {statuses.map((s) => {
+          const columnOrders = orders.filter((o) => o.status === s.value);
+          return (
+            <div
+              key={s.value}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDragOverStatus(s.value);
+              }}
+              onDragLeave={() => setDragOverStatus(null)}
+              onDrop={(e) => onDrop(e, s.value)}
+              className={`w-[260px] shrink-0 rounded-2xl p-3 transition-colors ${
+                dragOverStatus === s.value ? "bg-tint" : "bg-surface"
+              }`}
+            >
+              <p className="label text-muted mb-3 px-1">
+                {s.label} <span className="text-muted">· {columnOrders.length}</span>
+              </p>
+              <div className="space-y-2">
+                {columnOrders.map((o) => (
+                  <div
+                    key={o.id}
+                    draggable
+                    onDragStart={(e) => e.dataTransfer.setData("text/order-id", String(o.id))}
+                    className="cursor-grab rounded-xl bg-bg p-3 shadow-[0_2px_8px_-4px_rgba(34,48,79,0.3)] active:cursor-grabbing"
+                  >
+                    <Link href={`/admin/crm/orders/${o.id}`} className="label text-ink hover:text-accent">
+                      {o.title}
+                    </Link>
+                    <p className="label text-muted mt-1">{contractorName(o.contractor_id)}</p>
+                    <p className="label text-ink mt-1">{money(o.amount_kopecks)}</p>
+                  </div>
+                ))}
               </div>
-              <span className="label text-ink shrink-0">{money(o.amount_kopecks)}</span>
-            </Link>
-          </li>
-        ))}
-      </ul>
-      {orders.length === 0 && <p className="label text-muted">Заказов пока нет</p>}
+            </div>
+          );
+        })}
+      </div>
+      {orders.length === 0 && <p className="label text-muted">Сделок пока нет</p>}
     </div>
   );
 }

@@ -16,7 +16,18 @@ export function getCrmDb(): Database.Database {
   db.pragma("journal_mode = WAL");
   initSchema(db);
   ensureTaskLinkColumns(db);
+  ensureContractorServiceProductColumn(db);
   return db;
+}
+
+/** contractor_services появилась раньше product_id — добавляем на уже существующих базах */
+function ensureContractorServiceProductColumn(db: Database.Database) {
+  const cols = (db.prepare("PRAGMA table_info(contractor_services)").all() as { name: string }[]).map(
+    (c) => c.name,
+  );
+  if (!cols.includes("product_id")) {
+    db.exec("ALTER TABLE contractor_services ADD COLUMN product_id INTEGER REFERENCES products(id)");
+  }
 }
 
 /** tasks появилась раньше contractor_id/order_id/reminded_at — добавляем на уже существующих базах */
@@ -160,9 +171,23 @@ function initSchema(db: Database.Database) {
     CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
     CREATE INDEX IF NOT EXISTS idx_tasks_due ON tasks(due_at);
 
+    CREATE TABLE IF NOT EXISTS products (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      category TEXT NOT NULL DEFAULT 'other',
+      title TEXT NOT NULL,
+      description TEXT,
+      default_cost_kopecks INTEGER NOT NULL DEFAULT 0,
+      default_sell_price_kopecks INTEGER NOT NULL DEFAULT 0,
+      lead_time TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_products_category ON products(category);
+
     CREATE TABLE IF NOT EXISTS contractor_services (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       contractor_id INTEGER NOT NULL REFERENCES contractors(id),
+      product_id INTEGER REFERENCES products(id),
       title TEXT NOT NULL,
       description TEXT,
       cost_kopecks INTEGER NOT NULL DEFAULT 0,
@@ -469,6 +494,85 @@ export function updateContractorService(
 export function deleteContractorService(id: number): void {
   const db = getCrmDb();
   db.prepare(`DELETE FROM contractor_services WHERE id = ?`).run(id);
+}
+
+// ---------- Каталог товаров ----------
+
+export type ProductCategory = "clothing" | "accessories" | "other";
+
+export type Product = {
+  id: number;
+  category: ProductCategory;
+  title: string;
+  description: string | null;
+  default_cost_kopecks: number;
+  default_sell_price_kopecks: number;
+  lead_time: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ProductInput = {
+  category?: ProductCategory;
+  title: string;
+  description?: string;
+  default_cost_kopecks?: number;
+  default_sell_price_kopecks?: number;
+  lead_time?: string;
+};
+
+export function getProducts(): Product[] {
+  const db = getCrmDb();
+  return db.prepare(`SELECT * FROM products ORDER BY category, title`).all() as Product[];
+}
+
+export function getProductById(id: number): Product | undefined {
+  const db = getCrmDb();
+  return db.prepare(`SELECT * FROM products WHERE id = ?`).get(id) as Product | undefined;
+}
+
+export function createProduct(input: ProductInput): Product {
+  const db = getCrmDb();
+  return db
+    .prepare(
+      `INSERT INTO products (category, title, description, default_cost_kopecks, default_sell_price_kopecks, lead_time)
+       VALUES (?, ?, ?, ?, ?, ?)
+       RETURNING *`,
+    )
+    .get(
+      input.category || "other",
+      input.title,
+      input.description || null,
+      input.default_cost_kopecks || 0,
+      input.default_sell_price_kopecks || 0,
+      input.lead_time || null,
+    ) as Product;
+}
+
+export function updateProduct(id: number, input: Partial<ProductInput>): Product | undefined {
+  const db = getCrmDb();
+  const current = getProductById(id);
+  if (!current) return undefined;
+
+  db.prepare(
+    `UPDATE products SET category = ?, title = ?, description = ?, default_cost_kopecks = ?, default_sell_price_kopecks = ?, lead_time = ?,
+      updated_at = datetime('now')
+     WHERE id = ?`,
+  ).run(
+    input.category ?? current.category,
+    input.title ?? current.title,
+    input.description ?? current.description,
+    input.default_cost_kopecks ?? current.default_cost_kopecks,
+    input.default_sell_price_kopecks ?? current.default_sell_price_kopecks,
+    input.lead_time ?? current.lead_time,
+    id,
+  );
+  return getProductById(id);
+}
+
+export function deleteProduct(id: number): void {
+  const db = getCrmDb();
+  db.prepare(`DELETE FROM products WHERE id = ?`).run(id);
 }
 
 // ---------- Заказы ----------
