@@ -682,6 +682,19 @@ export function getPayments(): Payment[] {
   return db.prepare(`SELECT * FROM payments ORDER BY paid_at DESC`).all() as Payment[];
 }
 
+export type MonthlyPaymentTotal = { month: string; direction: PaymentDirection; total_kopecks: number };
+
+/** Платежи CRM, сгруппированные по месяцу и направлению — для P&L */
+export function getPaymentsByMonth(): MonthlyPaymentTotal[] {
+  const db = getCrmDb();
+  return db
+    .prepare(
+      `SELECT strftime('%Y-%m', paid_at) as month, direction, SUM(amount_kopecks) as total_kopecks
+       FROM payments GROUP BY month, direction ORDER BY month`,
+    )
+    .all() as MonthlyPaymentTotal[];
+}
+
 export function getPaymentsByContractor(contractorId: number): Payment[] {
   const db = getCrmDb();
   return db

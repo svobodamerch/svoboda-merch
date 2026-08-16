@@ -13,6 +13,18 @@ type Payment = {
   comment: string | null;
   paid_at: string;
 };
+type MonthRow = {
+  month: string;
+  crmIncomeKopecks: number;
+  crmExpenseKopecks: number;
+  mtIncomeKopecks: number;
+  mtExpenseKopecks: number;
+  incomeKopecks: number;
+  expenseKopecks: number;
+  netKopecks: number;
+};
+type ExpenseCategory = { category: string; totalKopecks: number };
+type Finance = { months: MonthRow[]; moneyTrekerGeneratedAt: string | null; expenseCategories: ExpenseCategory[] };
 
 const methodLabel: Record<string, string> = {
   cash: "Наличные",
@@ -31,6 +43,7 @@ const field =
 export default function PaymentsPage() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [contractors, setContractors] = useState<Contractor[]>([]);
+  const [finance, setFinance] = useState<Finance | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({
     contractorId: "",
@@ -48,6 +61,9 @@ export default function PaymentsPage() {
     fetch("/api/crm/contractors")
       .then((r) => r.json())
       .then((d) => setContractors(d.contractors));
+    fetch("/api/crm/finance")
+      .then((r) => r.json())
+      .then(setFinance);
   };
 
   useEffect(load, []);
@@ -81,6 +97,59 @@ export default function PaymentsPage() {
           {showForm ? "Отмена" : "Записать платёж"}
         </button>
       </div>
+
+      {finance && finance.months.length > 0 && (
+        <div>
+          <div className="mb-4 flex items-baseline justify-between">
+            <p className="label text-accent">Отчёт по месяцам (CRM + Money Treker, бизнес)</p>
+            {finance.moneyTrekerGeneratedAt && (
+              <span className="label text-muted">
+                данные Money Treker на {new Date(finance.moneyTrekerGeneratedAt).toLocaleDateString("ru-RU")}
+              </span>
+            )}
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[560px] text-left">
+              <thead>
+                <tr className="border-b border-line">
+                  <th className="label text-muted py-2 pr-4 font-normal">Месяц</th>
+                  <th className="label text-muted py-2 pr-4 font-normal">Доход</th>
+                  <th className="label text-muted py-2 pr-4 font-normal">Расход</th>
+                  <th className="label text-muted py-2 font-normal">Итог</th>
+                </tr>
+              </thead>
+              <tbody>
+                {finance.months.map((m) => (
+                  <tr key={m.month} className="border-b border-line">
+                    <td className="label text-ink py-3 pr-4">{m.month}</td>
+                    <td className="label text-accent py-3 pr-4">{money(m.incomeKopecks)}</td>
+                    <td className="label text-ink-soft py-3 pr-4">{money(m.expenseKopecks)}</td>
+                    <td className={`label py-3 ${m.netKopecks >= 0 ? "text-accent" : "text-ink-soft"}`}>
+                      {m.netKopecks >= 0 ? "+" : ""}
+                      {money(m.netKopecks)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {finance.expenseCategories.length > 0 && (
+            <div className="mt-6">
+              <p className="label text-muted mb-3">Расходы по статьям (Money Treker, за всё время)</p>
+              <ul className="space-y-1.5">
+                {finance.expenseCategories.slice(0, 8).map((c) => (
+                  <li key={c.category} className="flex items-center justify-between">
+                    <span className="label text-ink-soft">{c.category}</span>
+                    <span className="label text-ink">{money(c.totalKopecks)}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
 
       {showForm && (
         <form onSubmit={submit} className="grid gap-3 rounded-2xl bg-surface p-6 sm:grid-cols-2">
