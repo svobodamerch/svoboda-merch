@@ -7,7 +7,7 @@ const SMTP_PASS = process.env.SMTP_PASS;
 const FROM_EMAIL = process.env.FROM_EMAIL || "mail@svoboda.site";
 const MANAGER_EMAIL = process.env.MANAGER_EMAIL || "mail@svoboda.site";
 
-function getTransporter() {
+export function getTransporter() {
   if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS) {
     return null;
   }
@@ -81,4 +81,44 @@ export async function sendAutoReply(data: LeadEmailData): Promise<boolean> {
   // Если добавите поле email — раскомментируйте.
   console.log("[email] Автоответ пропущен — нет email клиента в заявке");
   return false;
+}
+
+export async function sendProposalEmail(
+  to: string,
+  contractorName: string,
+  orderTitle: string,
+  link: string,
+): Promise<boolean> {
+  const transporter = getTransporter();
+  if (!transporter) {
+    console.warn("[email] SMTP не настроен — КП не отправлено");
+    return false;
+  }
+
+  const html = `
+    <div style="font-family: monospace; color: #22304f; max-width: 480px;">
+      <p>Здравствуйте, ${contractorName}!</p>
+      <p>Подготовили коммерческое предложение «${orderTitle}».</p>
+      <p style="margin: 24px 0;">
+        <a href="${link}" style="background:#c05b3e;color:#fff;padding:14px 24px;border-radius:999px;text-decoration:none;">
+          Открыть КП →
+        </a>
+      </p>
+      <p>[СВОБОДА]* · svoboda.site</p>
+    </div>
+  `;
+
+  try {
+    await transporter.sendMail({
+      from: `"Свобода Мерч" <${FROM_EMAIL}>`,
+      to,
+      subject: `КП: ${orderTitle}`,
+      html,
+      text: `Коммерческое предложение «${orderTitle}»: ${link}`,
+    });
+    return true;
+  } catch (err) {
+    console.error("[email] Ошибка отправки КП:", err);
+    return false;
+  }
 }

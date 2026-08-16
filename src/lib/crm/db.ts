@@ -1,5 +1,6 @@
 import Database from "better-sqlite3";
 import path from "path";
+import { randomBytes } from "crypto";
 
 /**
  * CRM живёт в той же SQLite-базе, что и заявки (leads) — файл уже общий
@@ -86,6 +87,49 @@ function initSchema(db: Database.Database) {
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
     CREATE INDEX IF NOT EXISTS idx_activity_entity ON activity_log(entity_type, entity_id);
+
+    CREATE TABLE IF NOT EXISTS order_items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      order_id INTEGER NOT NULL REFERENCES orders(id),
+      position INTEGER NOT NULL DEFAULT 0,
+      title TEXT NOT NULL,
+      description TEXT,
+      quantity INTEGER NOT NULL DEFAULT 1,
+      unit TEXT NOT NULL DEFAULT 'шт',
+      unit_price_kopecks INTEGER NOT NULL DEFAULT 0,
+      discount_percent REAL NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_order_items_order ON order_items(order_id);
+
+    CREATE TABLE IF NOT EXISTS proposals (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      order_id INTEGER NOT NULL REFERENCES orders(id),
+      token TEXT NOT NULL UNIQUE,
+      template TEXT NOT NULL DEFAULT 'classic',
+      status TEXT NOT NULL DEFAULT 'draft',
+      intro TEXT,
+      solution TEXT,
+      terms TEXT,
+      valid_until TEXT,
+      created_by TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      sent_at TEXT,
+      viewed_at TEXT,
+      accepted_at TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_proposals_token ON proposals(token);
+    CREATE INDEX IF NOT EXISTS idx_proposals_order ON proposals(order_id);
+
+    CREATE TABLE IF NOT EXISTS proposal_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      proposal_id INTEGER NOT NULL REFERENCES proposals(id),
+      event TEXT NOT NULL,
+      meta TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_proposal_events_proposal ON proposal_events(proposal_id);
   `);
 }
 
@@ -446,6 +490,224 @@ export function getDebts(): { owedToUs: DebtEntry[]; weOwe: DebtEntry[] } {
   owedToUs.sort((a, b) => b.balance_kopecks - a.balance_kopecks);
   weOwe.sort((a, b) => a.balance_kopecks - b.balance_kopecks);
   return { owedToUs, weOwe };
+}
+
+// ---------- Позиции заказа ----------
+
+export type OrderItem = {
+  id: number;
+  order_id: number;
+  position: number;
+  title: string;
+  description: string | null;
+  quantity: number;
+  unit: string;
+  unit_price_kopecks: number;
+  discount_percent: number;
+  created_at: string;
+};
+
+export type OrderItemInput = {
+  title: string;
+  description?: string;
+  quantity: number;
+  unit?: string;
+  unit_price_kopecks: number;
+  discount_percent?: number;
+};
+
+export function getOrderItems(orderId: number): OrderItem[] {
+  const db = getCrmDb();
+  return db
+    .prepare(`SELECT * FROM order_items WHERE order_id = ? ORDER BY position, id`)
+    .all(orderId) as OrderItem[];
+}
+
+export function lineTotalKopecks(item: Pick<OrderItem, "quantity" | "unit_price_kopecks" | "discount_percent">): number {
+  const gross = item.quantity * item.unit_price_kopecks;
+  return Math.round(gross * (1 - item.discount_percent / 100));
+}
+
+/**
+ * Полностью заменяет состав заказа и пересчитывает его сумму — заказ
+ * остаётся единым источником правды для баланса контрагента, позиции
+ * лишь его расшифровка.
+ */
+export function replaceOrderItems(orderId: number, items: OrderItemInput[], actor?: string): OrderItem[] {
+  const db = getCrmDb();
+  const tx = db.transaction((rows: OrderItemInput[]) => {
+    db.prepare(`DELETE FROM order_items WHERE order_id = ?`).run(orderId);
+
+    const insert = db.prepare(
+      `INSERT INTO order_items (order_id, position, title, description, quantity, unit, unit_price_kopecks, discount_percent)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    );
+    rows.forEach((row, i) => {
+      insert.run(
+        orderId,
+        i,
+        row.title,
+        row.description || null,
+        row.quantity,
+        row.unit || "шт",
+        row.unit_price_kopecks,
+        row.discount_percent || 0,
+      );
+    });
+
+    const total = rows.reduce((sum, row) => sum + lineTotalKopecks({ ...row, discount_percent: row.discount_percent || 0 }), 0);
+    db.prepare(`UPDATE orders SET amount_kopecks = ?, updated_at = datetime('now') WHERE id = ?`).run(total, orderId);
+  });
+  tx(items);
+
+  logActivity("order", orderId, "items_updated", `Состав заказа обновлён — ${items.length} поз.`, actor);
+  return getOrderItems(orderId);
+}
+
+// ---------- КП (proposals) ----------
+
+export type ProposalTemplate = "classic" | "short";
+export type ProposalStatus = "draft" | "sent" | "viewed" | "accepted" | "needs_revision";
+
+export type Proposal = {
+  id: number;
+  order_id: number;
+  token: string;
+  template: ProposalTemplate;
+  status: ProposalStatus;
+  intro: string | null;
+  solution: string | null;
+  terms: string | null;
+  valid_until: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  sent_at: string | null;
+  viewed_at: string | null;
+  accepted_at: string | null;
+};
+
+export type ProposalInput = {
+  template?: ProposalTemplate;
+  intro?: string;
+  solution?: string;
+  terms?: string;
+  valid_until?: string;
+};
+
+function generateToken(): string {
+  return randomBytes(12).toString("base64url");
+}
+
+export function getProposalByOrderId(orderId: number): Proposal | undefined {
+  const db = getCrmDb();
+  return db.prepare(`SELECT * FROM proposals WHERE order_id = ?`).get(orderId) as Proposal | undefined;
+}
+
+export function getProposalByToken(token: string): Proposal | undefined {
+  const db = getCrmDb();
+  return db.prepare(`SELECT * FROM proposals WHERE token = ?`).get(token) as Proposal | undefined;
+}
+
+export function getProposalById(id: number): Proposal | undefined {
+  const db = getCrmDb();
+  return db.prepare(`SELECT * FROM proposals WHERE id = ?`).get(id) as Proposal | undefined;
+}
+
+/** Один активный КП на заказ — если уже есть, возвращает его как есть */
+export function createProposal(orderId: number, input: ProposalInput, actor?: string): Proposal {
+  const existing = getProposalByOrderId(orderId);
+  if (existing) return existing;
+
+  const db = getCrmDb();
+  const proposal = db
+    .prepare(
+      `INSERT INTO proposals (order_id, token, template, intro, solution, terms, valid_until, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+       RETURNING *`,
+    )
+    .get(
+      orderId,
+      generateToken(),
+      input.template || "classic",
+      input.intro || null,
+      input.solution || null,
+      input.terms || null,
+      input.valid_until || null,
+      actor || null,
+    ) as Proposal;
+
+  logActivity("order", orderId, "proposal_created", "Создано коммерческое предложение", actor);
+  return proposal;
+}
+
+export function updateProposal(id: number, input: ProposalInput): Proposal | undefined {
+  const db = getCrmDb();
+  const current = getProposalById(id);
+  if (!current) return undefined;
+
+  db.prepare(
+    `UPDATE proposals SET template = ?, intro = ?, solution = ?, terms = ?, valid_until = ?, updated_at = datetime('now')
+     WHERE id = ?`,
+  ).run(
+    input.template ?? current.template,
+    input.intro ?? current.intro,
+    input.solution ?? current.solution,
+    input.terms ?? current.terms,
+    input.valid_until ?? current.valid_until,
+    id,
+  );
+  return getProposalById(id);
+}
+
+export function logProposalEvent(proposalId: number, event: string, meta?: string): void {
+  const db = getCrmDb();
+  db.prepare(`INSERT INTO proposal_events (proposal_id, event, meta) VALUES (?, ?, ?)`).run(
+    proposalId,
+    event,
+    meta || null,
+  );
+}
+
+export function getProposalEvents(proposalId: number): { id: number; event: string; meta: string | null; created_at: string }[] {
+  const db = getCrmDb();
+  return db
+    .prepare(`SELECT * FROM proposal_events WHERE proposal_id = ? ORDER BY created_at DESC`)
+    .all(proposalId) as { id: number; event: string; meta: string | null; created_at: string }[];
+}
+
+export function markProposalSent(id: number, channel: string, actor?: string): void {
+  const db = getCrmDb();
+  const proposal = getProposalById(id);
+  if (!proposal) return;
+  db.prepare(`UPDATE proposals SET status = 'sent', sent_at = datetime('now'), updated_at = datetime('now') WHERE id = ?`).run(id);
+  logProposalEvent(id, `sent_${channel}`);
+  logActivity("order", proposal.order_id, "proposal_sent", `КП отправлено (${channel})`, actor);
+}
+
+/** Отмечает первый просмотр — повторные заходы статус не откатывают */
+export function markProposalViewed(id: number): void {
+  const db = getCrmDb();
+  const proposal = getProposalById(id);
+  if (!proposal || proposal.viewed_at) return;
+  db.prepare(
+    `UPDATE proposals SET status = CASE WHEN status = 'sent' THEN 'viewed' ELSE status END,
+       viewed_at = datetime('now'), updated_at = datetime('now') WHERE id = ?`,
+  ).run(id);
+  logProposalEvent(id, "viewed");
+  logActivity("order", proposal.order_id, "proposal_viewed", "Клиент открыл КП");
+}
+
+export function markProposalAccepted(id: number): Proposal | undefined {
+  const db = getCrmDb();
+  const proposal = getProposalById(id);
+  if (!proposal) return undefined;
+  db.prepare(
+    `UPDATE proposals SET status = 'accepted', accepted_at = datetime('now'), updated_at = datetime('now') WHERE id = ?`,
+  ).run(id);
+  logProposalEvent(id, "accepted");
+  logActivity("order", proposal.order_id, "proposal_accepted", "Клиент принял КП");
+  return getProposalById(id);
 }
 
 // ---------- Пользователи CRM ----------

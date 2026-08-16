@@ -13,7 +13,7 @@ const legal = [
 
 export function Footer() {
   return (
-    <footer className="border-t border-line bg-surface">
+    <footer className="print:hidden border-t border-line bg-surface">
       <Container className="py-12 md:py-16">
         <div className="grid gap-10 md:grid-cols-4">
           <div>
