@@ -18,6 +18,7 @@ export function getCrmDb(): Database.Database {
   ensureTaskLinkColumns(db);
   ensureContractorServiceProductColumn(db);
   ensurePaymentsCategoryColumn(db);
+  ensureOrderNotesColumn(db);
   db.exec("CREATE INDEX IF NOT EXISTS idx_payments_category ON payments(category_id)");
   return db;
 }
@@ -72,6 +73,12 @@ function ensureContractorServiceProductColumn(db: Database.Database) {
   if (!cols.includes("product_id")) {
     db.exec("ALTER TABLE contractor_services ADD COLUMN product_id INTEGER REFERENCES products(id)");
   }
+}
+
+/** База знаний: свободные заметки по проекту (что сработало, косяки, поставщики) — добавляем на уже существующих базах */
+function ensureOrderNotesColumn(db: Database.Database) {
+  const cols = (db.prepare("PRAGMA table_info(orders)").all() as { name: string }[]).map((c) => c.name);
+  if (!cols.includes("notes")) db.exec("ALTER TABLE orders ADD COLUMN notes TEXT");
 }
 
 /** tasks появилась раньше contractor_id/order_id/reminded_at — добавляем на уже существующих базах */
@@ -290,6 +297,7 @@ export type Order = {
   amount_kopecks: number;
   deadline: string | null;
   source: string;
+  notes: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
@@ -693,6 +701,12 @@ export function updateOrderStatus(id: number, status: OrderStatus, actor?: strin
   const db = getCrmDb();
   db.prepare(`UPDATE orders SET status = ?, updated_at = datetime('now') WHERE id = ?`).run(status, id);
   logActivity("order", id, "status_changed", `Статус изменён на «${status}»`, actor);
+}
+
+/** База знаний: заметки по проекту — что сработало, косяки, поставщики, сроки */
+export function updateOrderNotes(id: number, notes: string): void {
+  const db = getCrmDb();
+  db.prepare(`UPDATE orders SET notes = ?, updated_at = datetime('now') WHERE id = ?`).run(notes || null, id);
 }
 
 // ---------- Платежи ----------
