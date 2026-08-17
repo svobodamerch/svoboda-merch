@@ -21,6 +21,7 @@ export async function POST(request: NextRequest) {
       title,
       description: String(body.description || "").trim() || undefined,
       due_at: String(body.dueAt || "").trim() || undefined,
+      remind_at: String(body.remindAt || "").trim() || undefined,
       contractor_id: body.contractorId ? Number(body.contractorId) : undefined,
       order_id: body.orderId ? Number(body.orderId) : undefined,
       amount_kopecks: body.amount ? toKopecks(body.amount) : undefined,

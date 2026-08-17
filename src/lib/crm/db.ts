@@ -88,6 +88,9 @@ function ensureTaskLinkColumns(db: Database.Database) {
   if (!cols.includes("order_id")) db.exec("ALTER TABLE tasks ADD COLUMN order_id INTEGER REFERENCES orders(id)");
   if (!cols.includes("reminded_at")) db.exec("ALTER TABLE tasks ADD COLUMN reminded_at TEXT");
   if (!cols.includes("amount_kopecks")) db.exec("ALTER TABLE tasks ADD COLUMN amount_kopecks INTEGER");
+  // Напомнить можно раньше срока («созвон в 14:00, напомнить за 10 минут»).
+  // Пусто — напоминаем ровно в due_at, как было.
+  if (!cols.includes("remind_at")) db.exec("ALTER TABLE tasks ADD COLUMN remind_at TEXT");
 }
 
 function initSchema(db: Database.Database) {
@@ -1117,6 +1120,7 @@ export type Task = {
   description: string | null;
   status: TaskStatus;
   due_at: string | null;
+  remind_at: string | null;
   entity_type: TaskEntityType | null;
   entity_id: number | null;
   contractor_id: number | null;
@@ -1139,6 +1143,7 @@ export type TaskInput = {
   title: string;
   description?: string;
   due_at?: string;
+  remind_at?: string;
   entity_type?: TaskEntityType;
   entity_id?: number;
   contractor_id?: number;
@@ -1151,14 +1156,15 @@ export function createTask(input: TaskInput, actor?: string): Task {
   const db = getCrmDb();
   const task = db
     .prepare(
-      `INSERT INTO tasks (title, description, due_at, entity_type, entity_id, contractor_id, order_id, amount_kopecks, source, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `INSERT INTO tasks (title, description, due_at, remind_at, entity_type, entity_id, contractor_id, order_id, amount_kopecks, source, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        RETURNING *`,
     )
     .get(
       input.title,
       input.description || null,
       input.due_at || null,
+      input.remind_at || null,
       input.entity_type || null,
       input.entity_id || null,
       input.contractor_id || null,
@@ -1211,7 +1217,7 @@ export function getDueTasks(): TaskWithLinks[] {
   return db
     .prepare(
       `${TASK_SELECT} WHERE t.status = 'open' AND t.due_at IS NOT NULL
-       AND t.due_at <= datetime('now') AND t.reminded_at IS NULL
+       AND COALESCE(t.remind_at, t.due_at) <= datetime('now') AND t.reminded_at IS NULL
        ORDER BY t.due_at`,
     )
     .all() as TaskWithLinks[];
