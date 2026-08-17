@@ -19,7 +19,9 @@ export function getCrmDb(): Database.Database {
   ensureContractorServiceProductColumn(db);
   ensurePaymentsCategoryColumn(db);
   ensureOrderNotesColumn(db);
+  ensureOrderCostReviewColumns(db);
   db.exec("CREATE INDEX IF NOT EXISTS idx_payments_category ON payments(category_id)");
+  db.exec("CREATE INDEX IF NOT EXISTS idx_order_costs_review ON order_costs(needs_review)");
   return db;
 }
 
@@ -79,6 +81,18 @@ function ensureContractorServiceProductColumn(db: Database.Database) {
 function ensureOrderNotesColumn(db: Database.Database) {
   const cols = (db.prepare("PRAGMA table_info(orders)").all() as { name: string }[]).map((c) => c.name);
   if (!cols.includes("notes")) db.exec("ALTER TABLE orders ADD COLUMN notes TEXT");
+}
+
+/**
+ * Флаг «на разбор»: когда данные внесены приблизительно (не ясен точный
+ * контрагент, не сходится количество и т.п.), не гадаем и не молчим —
+ * помечаем needs_review вместо текстовой пометки в comment, чтобы потом
+ * можно было спокойно сесть и пройтись по очереди целиком.
+ */
+function ensureOrderCostReviewColumns(db: Database.Database) {
+  const cols = (db.prepare("PRAGMA table_info(order_costs)").all() as { name: string }[]).map((c) => c.name);
+  if (!cols.includes("needs_review")) db.exec("ALTER TABLE order_costs ADD COLUMN needs_review INTEGER NOT NULL DEFAULT 0");
+  if (!cols.includes("review_note")) db.exec("ALTER TABLE order_costs ADD COLUMN review_note TEXT");
 }
 
 /** tasks появилась раньше contractor_id/order_id/reminded_at — добавляем на уже существующих базах */
@@ -289,6 +303,8 @@ function initSchema(db: Database.Database) {
       status TEXT NOT NULL DEFAULT 'planned',
       payment_id INTEGER REFERENCES payments(id),
       comment TEXT,
+      needs_review INTEGER NOT NULL DEFAULT 0,
+      review_note TEXT,
       created_by TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -593,6 +609,7 @@ export function getContractorBalance(id: number): number {
 export type ContractorService = {
   id: number;
   contractor_id: number;
+  product_id: number | null;
   title: string;
   description: string | null;
   cost_kopecks: number;
@@ -606,6 +623,7 @@ export type ContractorService = {
 export type ContractorServiceInput = {
   title: string;
   description?: string;
+  product_id?: number;
   cost_kopecks: number;
   sell_price_kopecks?: number;
   lead_time?: string;
@@ -627,12 +645,13 @@ export function createContractorService(
   const db = getCrmDb();
   const service = db
     .prepare(
-      `INSERT INTO contractor_services (contractor_id, title, description, cost_kopecks, sell_price_kopecks, lead_time, notes)
-       VALUES (?, ?, ?, ?, ?, ?, ?)
+      `INSERT INTO contractor_services (contractor_id, product_id, title, description, cost_kopecks, sell_price_kopecks, lead_time, notes)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
        RETURNING *`,
     )
     .get(
       contractorId,
+      input.product_id || null,
       input.title,
       input.description || null,
       input.cost_kopecks,
@@ -1494,6 +1513,8 @@ export type OrderCost = {
   status: CostStatus;
   payment_id: number | null;
   comment: string | null;
+  needs_review: number;
+  review_note: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
@@ -1518,6 +1539,8 @@ export type OrderCostInput = {
   doc_url?: string;
   status?: CostStatus;
   comment?: string;
+  needs_review?: boolean;
+  review_note?: string;
 };
 
 const COST_SELECT = `
@@ -1552,8 +1575,9 @@ export function createOrderCost(input: OrderCostInput, actor?: string): OrderCos
     .prepare(
       `INSERT INTO order_costs
          (order_id, order_item_id, kind, title, contractor_id, quantity, unit,
-          unit_cost_kopecks, amount_kopecks, supplier_invoice, doc_url, status, comment, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          unit_cost_kopecks, amount_kopecks, supplier_invoice, doc_url, status, comment,
+          needs_review, review_note, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        RETURNING *`,
     )
     .get(
@@ -1570,6 +1594,8 @@ export function createOrderCost(input: OrderCostInput, actor?: string): OrderCos
       input.doc_url || null,
       input.status || "planned",
       input.comment || null,
+      input.needs_review ? 1 : 0,
+      input.review_note || null,
       actor || null,
     ) as OrderCost;
 
@@ -1582,7 +1608,13 @@ export function updateOrderCost(id: number, input: Partial<OrderCostInput>, acto
   const existing = db.prepare(`SELECT * FROM order_costs WHERE id = ?`).get(id) as OrderCost | undefined;
   if (!existing) return undefined;
 
-  const merged = { ...existing, ...input } as OrderCostInput & { amount_kopecks?: number };
+  // Роуты передают все поля явно, в том числе как undefined, когда клиент их
+  // не менял — {...existing, ...input} тогда затирал бы существующие значения
+  // (например title) этим undefined. Оставляем в input только реально заданное.
+  const definedInput = Object.fromEntries(
+    Object.entries(input).filter(([, v]) => v !== undefined),
+  ) as Partial<OrderCostInput>;
+  const merged = { ...existing, ...definedInput } as unknown as OrderCostInput & { amount_kopecks?: number };
   // Пересчитываем сумму, только если пришли количество или цена и не пришла явная сумма
   const amount =
     input.amount_kopecks != null
@@ -1595,7 +1627,7 @@ export function updateOrderCost(id: number, input: Partial<OrderCostInput>, acto
     `UPDATE order_costs SET
        order_item_id = ?, kind = ?, title = ?, contractor_id = ?, quantity = ?, unit = ?,
        unit_cost_kopecks = ?, amount_kopecks = ?, supplier_invoice = ?, doc_url = ?,
-       status = ?, comment = ?, updated_at = datetime('now')
+       status = ?, comment = ?, needs_review = ?, review_note = ?, updated_at = datetime('now')
      WHERE id = ?`,
   ).run(
     merged.order_item_id || null,
@@ -1610,6 +1642,8 @@ export function updateOrderCost(id: number, input: Partial<OrderCostInput>, acto
     merged.doc_url || null,
     merged.status || "planned",
     merged.comment || null,
+    input.needs_review != null ? (input.needs_review ? 1 : 0) : existing.needs_review,
+    input.review_note !== undefined ? input.review_note || null : existing.review_note,
     id,
   );
 
@@ -1623,6 +1657,24 @@ export function deleteOrderCost(id: number, actor?: string): void {
   if (!existing) return;
   db.prepare(`DELETE FROM order_costs WHERE id = ?`).run(id);
   logActivity("order", existing.order_id, "cost_deleted", `Затрата удалена: «${existing.title}»`, actor);
+}
+
+export type ReviewCostRow = OrderCostWithLabels & { order_title: string | null };
+
+/** Всё, что внесено приблизительно и требует спокойного разбора — по всем заказам сразу */
+export function getCostsNeedingReview(): ReviewCostRow[] {
+  const db = getCrmDb();
+  return db
+    .prepare(
+      `SELECT oc.*, c.name AS contractor_name, oi.title AS item_title, o.title AS order_title
+       FROM order_costs oc
+       LEFT JOIN contractors c ON c.id = oc.contractor_id
+       LEFT JOIN order_items oi ON oi.id = oc.order_item_id
+       LEFT JOIN orders o ON o.id = oc.order_id
+       WHERE oc.needs_review = 1
+       ORDER BY oc.created_at DESC`,
+    )
+    .all() as ReviewCostRow[];
 }
 
 /**

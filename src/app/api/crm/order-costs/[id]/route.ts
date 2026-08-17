@@ -27,6 +27,8 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       doc_url: body.docUrl != null ? String(body.docUrl).trim() : undefined,
       status: body.status as CostStatus | undefined,
       comment: body.comment != null ? String(body.comment).trim() : undefined,
+      needs_review: body.needsReview != null ? Boolean(body.needsReview) : undefined,
+      review_note: body.reviewNote != null ? String(body.reviewNote).trim() : undefined,
     },
     actor,
   );

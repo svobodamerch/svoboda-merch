@@ -47,6 +47,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       doc_url: String(body.docUrl || "").trim() || undefined,
       status: (body.status as CostStatus) || "planned",
       comment: String(body.comment || "").trim() || undefined,
+      needs_review: Boolean(body.needsReview),
+      review_note: String(body.reviewNote || "").trim() || undefined,
     },
     actor,
   );

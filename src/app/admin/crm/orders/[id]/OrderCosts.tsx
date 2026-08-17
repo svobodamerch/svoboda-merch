@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ContractorPicker } from "@/components/crm/ContractorPicker";
 
-type Contractor = { id: number; name: string };
+type Contractor = { id: number; name: string; company?: string | null };
 type OrderItem = { id: number; title: string };
 
 export type Cost = {
@@ -20,6 +21,8 @@ export type Cost = {
   supplier_invoice: string | null;
   status: "planned" | "confirmed" | "paid";
   payment_id: number | null;
+  needs_review: number;
+  review_note: string | null;
 };
 
 export type Economics = {
@@ -65,6 +68,8 @@ const emptyForm = {
   amount: "",
   supplierInvoice: "",
   status: "confirmed",
+  needsReview: false,
+  reviewNote: "",
 };
 
 export function OrderCosts({ orderId, onChanged }: { orderId: string; onChanged: () => void }) {
@@ -203,18 +208,11 @@ export function OrderCosts({ orderId, onChanged }: { orderId: string; onChanged:
               </option>
             ))}
           </select>
-          <select
-            className={field}
+          <ContractorPicker
+            contractors={contractors}
             value={form.contractorId}
-            onChange={(e) => setForm((f) => ({ ...f, contractorId: e.target.value }))}
-          >
-            <option value="">Поставщик — не указан</option>
-            {contractors.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
+            onChange={(id) => setForm((f) => ({ ...f, contractorId: id }))}
+          />
           <select
             className={field}
             value={form.orderItemId}
@@ -267,6 +265,22 @@ export function OrderCosts({ orderId, onChanged }: { orderId: string; onChanged:
               <option value="paid">Уже оплачено</option>
             </select>
           </div>
+          <label className="label flex items-center gap-2 text-ink-soft sm:col-span-2">
+            <input
+              type="checkbox"
+              checked={form.needsReview}
+              onChange={(e) => setForm((f) => ({ ...f, needsReview: e.target.checked }))}
+            />
+            Не уверен — отметить на разбор
+          </label>
+          {form.needsReview && (
+            <input
+              className={`${field} sm:col-span-2`}
+              placeholder="Что именно неясно (необязательно)"
+              value={form.reviewNote}
+              onChange={(e) => setForm((f) => ({ ...f, reviewNote: e.target.value }))}
+            />
+          )}
           <div className="flex items-center justify-between sm:col-span-2">
             <span className="label text-muted">Итого: {computed} ₽</span>
             <button
@@ -285,15 +299,19 @@ export function OrderCosts({ orderId, onChanged }: { orderId: string; onChanged:
         {costs.map((c) => (
           <li key={c.id} className="flex flex-wrap items-center justify-between gap-2 py-3">
             <div className="min-w-0">
-              <p className="label text-ink">
+              <p className="label text-ink flex items-center gap-2">
                 {c.title}
                 {c.supplier_invoice ? ` · счёт ${c.supplier_invoice}` : ""}
+                {!!c.needs_review && (
+                  <span className="rounded-full bg-tint px-2 py-0.5 text-[11px] text-accent">на разбор</span>
+                )}
               </p>
               <p className="label text-muted">
                 {kindLabel[c.kind]}
                 {c.contractor_name ? ` · ${c.contractor_name}` : ""}
                 {c.item_title ? ` · ${c.item_title}` : ""}
                 {c.quantity !== 1 ? ` · ${c.quantity} ${c.unit}` : ""}
+                {c.needs_review && c.review_note ? ` · ${c.review_note}` : ""}
               </p>
             </div>
             <div className="flex shrink-0 items-center gap-3">

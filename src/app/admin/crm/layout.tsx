@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Container } from "@/components/ui/Container";
 
 const tabs = [
@@ -15,17 +15,29 @@ const tabs = [
   { href: "/admin/crm/tasks", label: "Задачи" },
   { href: "/admin/crm/calendar", label: "Календарь" },
   { href: "/admin/crm/knowledge", label: "База знаний" },
+  { href: "/admin/crm/review", label: "Разбор" },
 ];
 
 export default function CrmLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
+  const [reviewCount, setReviewCount] = useState(0);
+
+  useEffect(() => {
+    fetch("/api/crm/review")
+      .then((r) => r.json())
+      .then((d) => setReviewCount(d.costs?.length || 0))
+      .catch(() => {});
+  }, [pathname]);
 
   const logout = async () => {
     await fetch("/api/crm/auth/logout", { method: "POST" });
     router.push("/admin/login");
     router.refresh();
   };
+
+  const tabLabel = (tab: (typeof tabs)[number]) =>
+    tab.href === "/admin/crm/review" && reviewCount > 0 ? `${tab.label} · ${reviewCount}` : tab.label;
 
   return (
     <div className="min-h-screen bg-bg">
@@ -45,7 +57,7 @@ export default function CrmLayout({ children }: { children: ReactNode }) {
                       active ? "bg-ink text-bg" : "text-ink-soft hover:bg-surface hover:text-ink"
                     }`}
                   >
-                    {tab.label}
+                    {tabLabel(tab)}
                   </Link>
                 );
               })}
@@ -66,7 +78,7 @@ export default function CrmLayout({ children }: { children: ReactNode }) {
                   active ? "bg-ink text-bg" : "text-ink-soft hover:bg-surface hover:text-ink"
                 }`}
               >
-                {tab.label}
+                {tabLabel(tab)}
               </Link>
             );
           })}
