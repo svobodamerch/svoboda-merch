@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "migrate": "tsx scripts/migrate.ts",
+    "seed:entities": "node scripts/seed-legal-entities.mjs"
   },
   "dependencies": {
     "@notionhq/client": "^5.22.0",
@@ -29,6 +31,7 @@
     "eslint": "^9.28.0",
     "eslint-config-next": "^15.3.3",
     "tailwindcss": "^4.1.8",
+    "tsx": "^4.23.12",
     "typescript": "^5.8.3"
   }
 }

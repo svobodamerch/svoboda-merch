@@ -186,6 +186,87 @@ function initSchema(db: Database.Database) {
     CREATE INDEX IF NOT EXISTS idx_order_items_order ON order_items(order_id);
 
     /*
+     * Юрлица: две ИП с разными налоговыми режимами. От юрлица зависят
+     * реквизиты в документе, своя нумерация и формула налога.
+     */
+    CREATE TABLE IF NOT EXISTS legal_entities (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      short_name TEXT NOT NULL,
+      inn TEXT NOT NULL,
+      kpp TEXT,
+      ogrnip TEXT,
+      address TEXT,
+      signer_name TEXT,
+      tax_regime TEXT NOT NULL DEFAULT 'usn_income',
+      tax_rate REAL NOT NULL DEFAULT 6,
+      is_default INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    /*
+     * Расчётные счета отдельной таблицей, а не полями юрлица: счёт можно
+     * сменить или держать несколько, а уже выставленные документы обязаны
+     * показывать тот счёт, с которым их выставили.
+     */
+    CREATE TABLE IF NOT EXISTS bank_accounts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      legal_entity_id INTEGER NOT NULL REFERENCES legal_entities(id),
+      bank_name TEXT NOT NULL,
+      bik TEXT NOT NULL,
+      corr_account TEXT,
+      account_number TEXT NOT NULL,
+      is_default INTEGER NOT NULL DEFAULT 0,
+      is_active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_bank_accounts_entity ON bank_accounts(legal_entity_id);
+
+    /*
+     * Счета и акты одной таблицей: структура у них совпадает почти
+     * полностью, акт обычно делается из счёта теми же позициями, и остаётся
+     * место для накладной и УПД. Реквизиты сторон сохраняются снимком в
+     * JSON — смена банка не должна переписывать историю документов.
+     */
+    CREATE TABLE IF NOT EXISTS documents (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      doc_type TEXT NOT NULL DEFAULT 'invoice',
+      number TEXT NOT NULL,
+      doc_date TEXT NOT NULL,
+      legal_entity_id INTEGER NOT NULL REFERENCES legal_entities(id),
+      bank_account_id INTEGER REFERENCES bank_accounts(id),
+      contractor_id INTEGER NOT NULL REFERENCES contractors(id),
+      order_id INTEGER REFERENCES orders(id),
+      source_document_id INTEGER REFERENCES documents(id),
+      basis TEXT,
+      status TEXT NOT NULL DEFAULT 'draft',
+      total_kopecks INTEGER NOT NULL DEFAULT 0,
+      supplier_snapshot TEXT,
+      buyer_snapshot TEXT,
+      paid_at TEXT,
+      comment TEXT,
+      created_by TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_documents_contractor ON documents(contractor_id);
+    CREATE INDEX IF NOT EXISTS idx_documents_order ON documents(order_id);
+    CREATE INDEX IF NOT EXISTS idx_documents_entity ON documents(legal_entity_id);
+
+    CREATE TABLE IF NOT EXISTS document_items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      document_id INTEGER NOT NULL REFERENCES documents(id),
+      position INTEGER NOT NULL DEFAULT 0,
+      title TEXT NOT NULL,
+      quantity REAL NOT NULL DEFAULT 1,
+      unit TEXT NOT NULL DEFAULT 'шт',
+      unit_price_kopecks INTEGER NOT NULL DEFAULT 0,
+      amount_kopecks INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE INDEX IF NOT EXISTS idx_document_items_doc ON document_items(document_id);
+
+    /*
      * Себестоимость заказа. Отдельно от payments сознательно: платёж — это
      * факт движения денег, а затрата возникает раньше (пришёл счёт от
      * поставщика) и может быть ещё не оплачена. Прибыль считается только
@@ -972,6 +1053,422 @@ export function replaceOrderItems(orderId: number, items: OrderItemInput[], acto
 
   logActivity("order", orderId, "items_updated", `Состав заказа обновлён — ${items.length} поз.`, actor);
   return getOrderItems(orderId);
+}
+
+// ---------- Юрлица и расчётные счета ----------
+
+export type TaxRegime = "usn_income" | "usn_income_minus_expense";
+
+export type LegalEntity = {
+  id: number;
+  name: string;
+  short_name: string;
+  inn: string;
+  kpp: string | null;
+  ogrnip: string | null;
+  address: string | null;
+  signer_name: string | null;
+  tax_regime: TaxRegime;
+  tax_rate: number;
+  is_default: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type BankAccount = {
+  id: number;
+  legal_entity_id: number;
+  bank_name: string;
+  bik: string;
+  corr_account: string | null;
+  account_number: string;
+  is_default: number;
+  is_active: number;
+  created_at: string;
+};
+
+export function getLegalEntities(): LegalEntity[] {
+  const db = getCrmDb();
+  return db.prepare(`SELECT * FROM legal_entities ORDER BY is_default DESC, id`).all() as LegalEntity[];
+}
+
+export function getLegalEntity(id: number): LegalEntity | undefined {
+  const db = getCrmDb();
+  return db.prepare(`SELECT * FROM legal_entities WHERE id = ?`).get(id) as LegalEntity | undefined;
+}
+
+export function upsertLegalEntity(input: Partial<LegalEntity> & { name: string; short_name: string; inn: string }): LegalEntity {
+  const db = getCrmDb();
+  if (input.id) {
+    db.prepare(
+      `UPDATE legal_entities SET name=?, short_name=?, inn=?, kpp=?, ogrnip=?, address=?,
+         signer_name=?, tax_regime=?, tax_rate=?, updated_at=datetime('now') WHERE id=?`,
+    ).run(
+      input.name, input.short_name, input.inn, input.kpp || null, input.ogrnip || null,
+      input.address || null, input.signer_name || null, input.tax_regime || "usn_income",
+      input.tax_rate ?? 6, input.id,
+    );
+    return getLegalEntity(input.id)!;
+  }
+  return db
+    .prepare(
+      `INSERT INTO legal_entities (name, short_name, inn, kpp, ogrnip, address, signer_name, tax_regime, tax_rate, is_default)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
+    )
+    .get(
+      input.name, input.short_name, input.inn, input.kpp || null, input.ogrnip || null,
+      input.address || null, input.signer_name || null, input.tax_regime || "usn_income",
+      input.tax_rate ?? 6, input.is_default ?? 0,
+    ) as LegalEntity;
+}
+
+export function getBankAccounts(legalEntityId?: number): BankAccount[] {
+  const db = getCrmDb();
+  if (legalEntityId) {
+    return db
+      .prepare(`SELECT * FROM bank_accounts WHERE legal_entity_id = ? ORDER BY is_default DESC, id`)
+      .all(legalEntityId) as BankAccount[];
+  }
+  return db.prepare(`SELECT * FROM bank_accounts ORDER BY legal_entity_id, is_default DESC`).all() as BankAccount[];
+}
+
+export function createBankAccount(input: Omit<BankAccount, "id" | "created_at" | "is_active"> & { is_active?: number }): BankAccount {
+  const db = getCrmDb();
+  const tx = db.transaction(() => {
+    // Счёт по умолчанию у юрлица может быть только один
+    if (input.is_default) {
+      db.prepare(`UPDATE bank_accounts SET is_default = 0 WHERE legal_entity_id = ?`).run(input.legal_entity_id);
+    }
+    return db
+      .prepare(
+        `INSERT INTO bank_accounts (legal_entity_id, bank_name, bik, corr_account, account_number, is_default, is_active)
+         VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING *`,
+      )
+      .get(
+        input.legal_entity_id, input.bank_name, input.bik, input.corr_account || null,
+        input.account_number, input.is_default ?? 0, input.is_active ?? 1,
+      ) as BankAccount;
+  });
+  return tx();
+}
+
+export function setDefaultBankAccount(id: number): void {
+  const db = getCrmDb();
+  const acc = db.prepare(`SELECT * FROM bank_accounts WHERE id = ?`).get(id) as BankAccount | undefined;
+  if (!acc) return;
+  const tx = db.transaction(() => {
+    db.prepare(`UPDATE bank_accounts SET is_default = 0 WHERE legal_entity_id = ?`).run(acc.legal_entity_id);
+    db.prepare(`UPDATE bank_accounts SET is_default = 1, is_active = 1 WHERE id = ?`).run(id);
+  });
+  tx();
+}
+
+export function archiveBankAccount(id: number): void {
+  const db = getCrmDb();
+  db.prepare(`UPDATE bank_accounts SET is_active = 0, is_default = 0 WHERE id = ?`).run(id);
+}
+
+// ---------- Счета и акты ----------
+
+export type DocType = "invoice" | "act";
+export type DocStatus = "draft" | "issued" | "paid" | "cancelled";
+
+export type DocumentRow = {
+  id: number;
+  doc_type: DocType;
+  number: string;
+  doc_date: string;
+  legal_entity_id: number;
+  bank_account_id: number | null;
+  contractor_id: number;
+  order_id: number | null;
+  source_document_id: number | null;
+  basis: string | null;
+  status: DocStatus;
+  total_kopecks: number;
+  supplier_snapshot: string | null;
+  buyer_snapshot: string | null;
+  paid_at: string | null;
+  comment: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type DocumentItem = {
+  id: number;
+  document_id: number;
+  position: number;
+  title: string;
+  quantity: number;
+  unit: string;
+  unit_price_kopecks: number;
+  amount_kopecks: number;
+};
+
+export type DocumentItemInput = {
+  title: string;
+  quantity?: number;
+  unit?: string;
+  unit_price_kopecks: number;
+};
+
+export type DocumentWithLabels = DocumentRow & {
+  contractor_name: string | null;
+  entity_short_name: string | null;
+};
+
+/**
+ * Следующий номер — продолжение существующей нумерации юрлица по типу
+ * документа. Нумерация у ИП сквозная и уже идёт (Лялин дошёл до 302,
+ * Остапович до 177), поэтому берём максимум числовой части, а не счётчик
+ * с нуля.
+ */
+export function nextDocumentNumber(legalEntityId: number, docType: DocType): string {
+  const db = getCrmDb();
+  const rows = db
+    .prepare(`SELECT number FROM documents WHERE legal_entity_id = ? AND doc_type = ?`)
+    .all(legalEntityId, docType) as { number: string }[];
+  const max = rows.reduce((m, r) => {
+    const n = parseInt(String(r.number).replace(/\D/g, ""), 10);
+    return Number.isFinite(n) && n > m ? n : m;
+  }, 0);
+  return String(max + 1);
+}
+
+function snapshotSupplier(entity: LegalEntity, account?: BankAccount): string {
+  return JSON.stringify({
+    name: entity.name,
+    inn: entity.inn,
+    kpp: entity.kpp,
+    address: entity.address,
+    signer: entity.signer_name,
+    bank: account
+      ? {
+          bank_name: account.bank_name,
+          bik: account.bik,
+          corr_account: account.corr_account,
+          account_number: account.account_number,
+        }
+      : null,
+  });
+}
+
+function snapshotBuyer(c: Contractor): string {
+  return JSON.stringify({
+    name: c.company || c.name,
+    inn: c.inn,
+    address: c.address,
+    contact: c.name,
+  });
+}
+
+export type CreateDocumentInput = {
+  doc_type?: DocType;
+  legal_entity_id: number;
+  bank_account_id?: number;
+  contractor_id: number;
+  order_id?: number;
+  source_document_id?: number;
+  basis?: string;
+  doc_date?: string;
+  number?: string;
+  comment?: string;
+  items: DocumentItemInput[];
+};
+
+export function createDocument(input: CreateDocumentInput, actor?: string): DocumentRow {
+  const db = getCrmDb();
+  const entity = getLegalEntity(input.legal_entity_id);
+  if (!entity) throw new Error("Юрлицо не найдено");
+
+  const accounts = getBankAccounts(entity.id);
+  const account =
+    accounts.find((a) => a.id === input.bank_account_id) ||
+    accounts.find((a) => a.is_default && a.is_active) ||
+    accounts.find((a) => a.is_active);
+
+  const contractor = getContractorById(input.contractor_id);
+  if (!contractor) throw new Error("Контрагент не найден");
+
+  const docType = input.doc_type || "invoice";
+  const items = input.items.filter((i) => i.title.trim());
+  const total = items.reduce(
+    (s, i) => s + Math.round((i.quantity ?? 1) * i.unit_price_kopecks),
+    0,
+  );
+
+  const tx = db.transaction(() => {
+    const doc = db
+      .prepare(
+        `INSERT INTO documents
+           (doc_type, number, doc_date, legal_entity_id, bank_account_id, contractor_id, order_id,
+            source_document_id, basis, status, total_kopecks, supplier_snapshot, buyer_snapshot, comment, created_by)
+         VALUES (?, ?, COALESCE(?, date('now')), ?, ?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?)
+         RETURNING *`,
+      )
+      .get(
+        docType,
+        input.number || nextDocumentNumber(entity.id, docType),
+        input.doc_date || null,
+        entity.id,
+        account?.id || null,
+        contractor.id,
+        input.order_id || null,
+        input.source_document_id || null,
+        input.basis || null,
+        total,
+        snapshotSupplier(entity, account),
+        snapshotBuyer(contractor),
+        input.comment || null,
+        actor || null,
+      ) as DocumentRow;
+
+    const insert = db.prepare(
+      `INSERT INTO document_items (document_id, position, title, quantity, unit, unit_price_kopecks, amount_kopecks)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    );
+    items.forEach((i, idx) => {
+      const qty = i.quantity ?? 1;
+      insert.run(doc.id, idx + 1, i.title, qty, i.unit || "шт", i.unit_price_kopecks, Math.round(qty * i.unit_price_kopecks));
+    });
+
+    return doc;
+  });
+
+  const doc = tx();
+  if (input.order_id) {
+    logActivity("order", input.order_id, "document_created",
+      `${docType === "act" ? "Акт" : "Счёт"} №${doc.number} на ${(total / 100).toLocaleString("ru-RU")} ₽`, actor);
+  }
+  return doc;
+}
+
+export function getDocuments(filter: { contractorId?: number; orderId?: number; docType?: DocType } = {}): DocumentWithLabels[] {
+  const db = getCrmDb();
+  const where: string[] = [];
+  const args: unknown[] = [];
+  if (filter.contractorId) { where.push("d.contractor_id = ?"); args.push(filter.contractorId); }
+  if (filter.orderId) { where.push("d.order_id = ?"); args.push(filter.orderId); }
+  if (filter.docType) { where.push("d.doc_type = ?"); args.push(filter.docType); }
+  const clause = where.length ? `WHERE ${where.join(" AND ")}` : "";
+
+  return db
+    .prepare(
+      `SELECT d.*, c.name AS contractor_name, le.short_name AS entity_short_name
+       FROM documents d
+       LEFT JOIN contractors c ON c.id = d.contractor_id
+       LEFT JOIN legal_entities le ON le.id = d.legal_entity_id
+       ${clause}
+       ORDER BY d.doc_date DESC, d.id DESC`,
+    )
+    .all(...args) as DocumentWithLabels[];
+}
+
+export function getDocumentById(id: number): DocumentWithLabels | undefined {
+  const db = getCrmDb();
+  return db
+    .prepare(
+      `SELECT d.*, c.name AS contractor_name, le.short_name AS entity_short_name
+       FROM documents d
+       LEFT JOIN contractors c ON c.id = d.contractor_id
+       LEFT JOIN legal_entities le ON le.id = d.legal_entity_id
+       WHERE d.id = ?`,
+    )
+    .get(id) as DocumentWithLabels | undefined;
+}
+
+export function getDocumentItems(documentId: number): DocumentItem[] {
+  const db = getCrmDb();
+  return db
+    .prepare(`SELECT * FROM document_items WHERE document_id = ? ORDER BY position, id`)
+    .all(documentId) as DocumentItem[];
+}
+
+export function updateDocumentStatus(id: number, status: DocStatus, actor?: string): DocumentRow | undefined {
+  const db = getCrmDb();
+  const doc = getDocumentById(id);
+  if (!doc) return undefined;
+
+  db.prepare(
+    `UPDATE documents SET status = ?, paid_at = CASE WHEN ? = 'paid' THEN COALESCE(paid_at, datetime('now')) ELSE paid_at END,
+       updated_at = datetime('now') WHERE id = ?`,
+  ).run(status, status, id);
+
+  if (doc.order_id) {
+    logActivity("order", doc.order_id, "document_status", `Счёт №${doc.number}: ${status}`, actor);
+  }
+  return db.prepare(`SELECT * FROM documents WHERE id = ?`).get(id) as DocumentRow;
+}
+
+/**
+ * Отметить счёт оплаченным: как и с затратами, платёж создаём здесь же,
+ * чтобы поступление не пришлось вводить вторым действием.
+ */
+export function payDocument(id: number, opts: { method?: PaymentMethod; paid_at?: string } = {}, actor?: string): DocumentRow | undefined {
+  const db = getCrmDb();
+  const doc = getDocumentById(id);
+  if (!doc) return undefined;
+  if (doc.status === "paid") return doc;
+
+  const tx = db.transaction(() => {
+    db.prepare(
+      `INSERT INTO payments (contractor_id, order_id, direction, amount_kopecks, method, comment, paid_at, source, created_by)
+       VALUES (?, ?, 'in', ?, ?, ?, COALESCE(?, datetime('now')), 'manual', ?)`,
+    ).run(
+      doc.contractor_id,
+      doc.order_id,
+      doc.total_kopecks,
+      opts.method || "transfer",
+      `Оплата счёта №${doc.number}`,
+      opts.paid_at || null,
+      actor || null,
+    );
+    db.prepare(
+      `UPDATE documents SET status='paid', paid_at=COALESCE(?, datetime('now')), updated_at=datetime('now') WHERE id=?`,
+    ).run(opts.paid_at || null, id);
+  });
+  tx();
+
+  if (doc.order_id) {
+    logActivity("order", doc.order_id, "document_paid", `Счёт №${doc.number} оплачен`, actor);
+  }
+  return db.prepare(`SELECT * FROM documents WHERE id = ?`).get(id) as DocumentRow;
+}
+
+/** Акт по счёту: те же позиции, своя нумерация, ссылка на счёт-источник */
+export function createActFromInvoice(invoiceId: number, actor?: string): DocumentRow | undefined {
+  const invoice = getDocumentById(invoiceId);
+  if (!invoice || invoice.doc_type !== "invoice") return undefined;
+  const items = getDocumentItems(invoiceId);
+
+  return createDocument(
+    {
+      doc_type: "act",
+      legal_entity_id: invoice.legal_entity_id,
+      bank_account_id: invoice.bank_account_id || undefined,
+      contractor_id: invoice.contractor_id,
+      order_id: invoice.order_id || undefined,
+      source_document_id: invoice.id,
+      basis: invoice.basis || `Счёт №${invoice.number} от ${invoice.doc_date}`,
+      items: items.map((i) => ({
+        title: i.title,
+        quantity: i.quantity,
+        unit: i.unit,
+        unit_price_kopecks: i.unit_price_kopecks,
+      })),
+    },
+    actor,
+  );
+}
+
+export function deleteDocument(id: number): void {
+  const db = getCrmDb();
+  const tx = db.transaction(() => {
+    db.prepare(`DELETE FROM document_items WHERE document_id = ?`).run(id);
+    db.prepare(`DELETE FROM documents WHERE id = ?`).run(id);
+  });
+  tx();
 }
 
 // ---------- Себестоимость заказа ----------
