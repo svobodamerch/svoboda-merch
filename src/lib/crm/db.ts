@@ -983,6 +983,41 @@ export function getMonthRevenueKopecks(): number {
   return row.sum;
 }
 
+export type ActiveDealsSummary = {
+  count: number;
+  amountKopecks: number;
+  byStatus: { status: OrderStatus; count: number; amountKopecks: number }[];
+};
+
+/** Сделки в работе — все статусы кроме готовых/отменённых */
+export function getActiveDealsSummary(): ActiveDealsSummary {
+  const db = getCrmDb();
+  const rows = db
+    .prepare(
+      `SELECT status, COUNT(*) AS count, COALESCE(SUM(amount_kopecks), 0) AS amount
+       FROM orders WHERE status NOT IN ('done', 'cancelled') GROUP BY status`,
+    )
+    .all() as { status: OrderStatus; count: number; amount: number }[];
+
+  return {
+    count: rows.reduce((s, r) => s + r.count, 0),
+    amountKopecks: rows.reduce((s, r) => s + r.amount, 0),
+    byStatus: rows.map((r) => ({ status: r.status, count: r.count, amountKopecks: r.amount })),
+  };
+}
+
+/** Затраты по сделкам, подтверждённые счётом или оплаченные, начисленные в этом месяце */
+export function getMonthCostKopecks(): number {
+  const db = getCrmDb();
+  const row = db
+    .prepare(
+      `SELECT COALESCE(SUM(amount_kopecks), 0) as sum FROM order_costs
+       WHERE status != 'planned' AND strftime('%Y-%m', created_at) = strftime('%Y-%m', 'now')`,
+    )
+    .get() as { sum: number };
+  return row.sum;
+}
+
 export type DebtEntry = { contractor: Contractor; balance_kopecks: number };
 
 /** Кто должен нам (balance > 0) и кому должны мы (balance < 0) */

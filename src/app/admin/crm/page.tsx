@@ -14,11 +14,25 @@ type ActivityEntry = {
   actor: string | null;
   created_at: string;
 };
+type ActiveDeals = {
+  count: number;
+  amountKopecks: number;
+  byStatus: { status: string; count: number; amountKopecks: number }[];
+};
 
 type Dashboard = {
   monthRevenueKopecks: number;
+  monthCostKopecks: number;
+  activeDeals: ActiveDeals;
   debts: { owedToUs: DebtEntry[]; weOwe: DebtEntry[] };
   activity: ActivityEntry[];
+};
+
+const statusLabel: Record<string, string> = {
+  new: "Новые",
+  in_production: "В работе",
+  ready: "Готовы",
+  shipped: "Отправлены",
 };
 
 function money(kopecks: number): string {
@@ -36,13 +50,68 @@ export default function CrmDashboardPage() {
 
   if (!data) return <p className="label text-muted">Загрузка…</p>;
 
+  const monthNet = data.monthRevenueKopecks - data.monthCostKopecks;
+
   return (
     <div className="space-y-10">
-      <div className="rounded-2xl bg-tint p-7">
-        <p className="label text-accent mb-2">Оплачено нам в этом месяце</p>
-        <p className="display text-ink" style={{ fontSize: "2.4rem" }}>
-          {money(data.monthRevenueKopecks)}
-        </p>
+      <div className="grid gap-4 sm:grid-cols-3">
+        <div className="rounded-2xl bg-tint p-7">
+          <p className="label text-accent mb-2">Оплачено нам в этом месяце</p>
+          <p className="display text-ink" style={{ fontSize: "2rem" }}>
+            {money(data.monthRevenueKopecks)}
+          </p>
+        </div>
+        <div className="rounded-2xl bg-surface p-7">
+          <p className="label text-muted mb-2">Затраты в этом месяце</p>
+          <p className="display text-ink" style={{ fontSize: "2rem" }}>
+            {money(data.monthCostKopecks)}
+          </p>
+        </div>
+        <div className="rounded-2xl bg-surface p-7">
+          <p className="label text-muted mb-2">Разница</p>
+          <p className={`display ${monthNet >= 0 ? "text-accent" : "text-ink"}`} style={{ fontSize: "2rem" }}>
+            {monthNet >= 0 ? "+" : ""}
+            {money(monthNet)}
+          </p>
+        </div>
+      </div>
+
+      <div>
+        <div className="mb-4 flex items-baseline justify-between">
+          <p className="label text-accent">Сделки в работе</p>
+          <Link href="/admin/crm/orders" className="label text-muted hover:text-accent">
+            Все сделки →
+          </Link>
+        </div>
+        <div className="rounded-2xl bg-surface p-6">
+          <div className="flex items-baseline gap-3">
+            <span className="display text-ink" style={{ fontSize: "1.8rem" }}>
+              {data.activeDeals.count}
+            </span>
+            <span className="label text-muted">
+              на сумму <span className="text-ink">{money(data.activeDeals.amountKopecks)}</span>
+            </span>
+          </div>
+          {data.activeDeals.byStatus.length > 0 && (
+            <div className="mt-4 flex flex-wrap gap-2">
+              {data.activeDeals.byStatus.map((s) => (
+                <span key={s.status} className="pill label bg-tint text-ink-soft">
+                  {statusLabel[s.status] || s.status}: {s.count} · {money(s.amountKopecks)}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div>
+        <p className="label text-accent mb-4">Финпланирование</p>
+        <div className="rounded-2xl border border-dashed border-line p-6">
+          <p className="label text-ink-soft">
+            План на месяц и прогноз на год появятся здесь после того, как выберем бизнес-модель для расчёта
+            (себестоимость + налоги по обеим ИП уже собираются — см. задачи в работе).
+          </p>
+        </div>
       </div>
 
       <div className="grid gap-6 sm:grid-cols-2">
