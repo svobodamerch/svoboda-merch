@@ -22,6 +22,7 @@ export async function POST(request: NextRequest) {
   const order = createOrder(
     {
       contractor_id: contractorId,
+      legal_entity_id: body.legalEntityId ? Number(body.legalEntityId) : undefined,
       title,
       description: String(body.description || "").trim() || undefined,
       amount_kopecks: amount,

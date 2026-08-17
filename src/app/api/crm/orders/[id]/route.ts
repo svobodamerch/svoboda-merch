@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   getActivity,
   getOrderById,
+  getOrderTax,
   getPaymentsByOrder,
+  updateOrderLegalEntity,
   updateOrderStatus,
   updateOrderNotes,
   type OrderStatus,
@@ -20,6 +22,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     order,
     payments: getPaymentsByOrder(id),
     activity: getActivity("order", id),
+    tax: getOrderTax(id),
   });
 }
 
@@ -31,14 +34,18 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   }
 
   const body = await request.json();
+  const actor = await getCurrentActor();
+
   const status = body.status as OrderStatus | undefined;
   if (status) {
-    const actor = await getCurrentActor();
     updateOrderStatus(id, status, actor);
   }
   if (typeof body.notes === "string") {
     updateOrderNotes(id, body.notes.trim());
   }
+  if (body.legalEntityId) {
+    updateOrderLegalEntity(id, Number(body.legalEntityId), actor);
+  }
 
-  return NextResponse.json({ order: getOrderById(id) });
+  return NextResponse.json({ order: getOrderById(id), tax: getOrderTax(id) });
 }

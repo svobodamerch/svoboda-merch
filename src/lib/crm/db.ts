@@ -19,6 +19,7 @@ export function getCrmDb(): Database.Database {
   ensureContractorServiceProductColumn(db);
   ensurePaymentsCategoryColumn(db);
   ensureOrderNotesColumn(db);
+  ensureOrderLegalEntityColumn(db);
   ensureOrderCostReviewColumns(db);
   db.exec("CREATE INDEX IF NOT EXISTS idx_payments_category ON payments(category_id)");
   db.exec("CREATE INDEX IF NOT EXISTS idx_order_costs_review ON order_costs(needs_review)");
@@ -83,6 +84,14 @@ function ensureOrderNotesColumn(db: Database.Database) {
   if (!cols.includes("notes")) db.exec("ALTER TABLE orders ADD COLUMN notes TEXT");
 }
 
+/** legal_entity_id появился позже orders — добавляем на уже существующих базах */
+function ensureOrderLegalEntityColumn(db: Database.Database) {
+  const cols = (db.prepare("PRAGMA table_info(orders)").all() as { name: string }[]).map((c) => c.name);
+  if (!cols.includes("legal_entity_id")) {
+    db.exec("ALTER TABLE orders ADD COLUMN legal_entity_id INTEGER REFERENCES legal_entities(id)");
+  }
+}
+
 /**
  * Флаг «на разбор»: когда данные внесены приблизительно (не ясен точный
  * контрагент, не сходится количество и т.п.), не гадаем и не молчим —
@@ -137,6 +146,7 @@ function initSchema(db: Database.Database) {
     CREATE TABLE IF NOT EXISTS orders (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       contractor_id INTEGER NOT NULL REFERENCES contractors(id),
+      legal_entity_id INTEGER REFERENCES legal_entities(id),
       title TEXT NOT NULL,
       description TEXT,
       status TEXT NOT NULL DEFAULT 'new',
@@ -421,6 +431,7 @@ export type Contractor = {
 export type Order = {
   id: number;
   contractor_id: number;
+  legal_entity_id: number | null;
   title: string;
   description: string | null;
   status: OrderStatus;
@@ -779,6 +790,7 @@ export function deleteProduct(id: number): void {
 
 export type OrderInput = {
   contractor_id: number;
+  legal_entity_id?: number;
   title: string;
   description?: string;
   amount_kopecks: number;
@@ -788,14 +800,22 @@ export type OrderInput = {
 
 export function createOrder(input: OrderInput, actor?: string): Order {
   const db = getCrmDb();
+  // Без явного выбора — сделка идёт через юрлицо по умолчанию, если оно заведено
+  const legalEntityId =
+    input.legal_entity_id ??
+    (db.prepare(`SELECT id FROM legal_entities WHERE is_default = 1 LIMIT 1`).get() as { id: number } | undefined)
+      ?.id ??
+    null;
+
   const order = db
     .prepare(
-      `INSERT INTO orders (contractor_id, title, description, amount_kopecks, deadline, source, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?)
+      `INSERT INTO orders (contractor_id, legal_entity_id, title, description, amount_kopecks, deadline, source, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
        RETURNING *`,
     )
     .get(
       input.contractor_id,
+      legalEntityId,
       input.title,
       input.description || null,
       input.amount_kopecks,
@@ -834,6 +854,51 @@ export function updateOrderStatus(id: number, status: OrderStatus, actor?: strin
   const db = getCrmDb();
   db.prepare(`UPDATE orders SET status = ?, updated_at = datetime('now') WHERE id = ?`).run(status, id);
   logActivity("order", id, "status_changed", `Статус изменён на «${status}»`, actor);
+}
+
+export function updateOrderLegalEntity(id: number, legalEntityId: number, actor?: string): void {
+  const db = getCrmDb();
+  db.prepare(`UPDATE orders SET legal_entity_id = ?, updated_at = datetime('now') WHERE id = ?`).run(
+    legalEntityId,
+    id,
+  );
+  logActivity("order", id, "legal_entity_changed", "Юрлицо сделки изменено", actor);
+}
+
+/**
+ * Налог по сделке — кассовым методом, как оба ИП фактически считают (см.
+ * финмодель): дата поступления денег, не дата счёта или начисления.
+ * УСН «доходы» — ставка от полученного. УСН «доходы минус расходы» —
+ * ставка от (получено минус подтверждённые/оплаченные затраты), но не
+ * меньше нуля — база не бывает отрицательной.
+ */
+export function getOrderTax(orderId: number): { legalEntity: LegalEntity | null; baseKopecks: number; taxKopecks: number } {
+  const db = getCrmDb();
+  const order = db.prepare(`SELECT * FROM orders WHERE id = ?`).get(orderId) as Order | undefined;
+  if (!order || !order.legal_entity_id) return { legalEntity: null, baseKopecks: 0, taxKopecks: 0 };
+
+  const entity = getLegalEntity(order.legal_entity_id);
+  if (!entity) return { legalEntity: null, baseKopecks: 0, taxKopecks: 0 };
+
+  const received = (
+    db
+      .prepare(`SELECT COALESCE(SUM(amount_kopecks), 0) AS s FROM payments WHERE order_id = ? AND direction = 'in'`)
+      .get(orderId) as { s: number }
+  ).s;
+
+  let base = received;
+  if (entity.tax_regime === "usn_income_minus_expense") {
+    const spent = (
+      db
+        .prepare(
+          `SELECT COALESCE(SUM(amount_kopecks), 0) AS s FROM order_costs WHERE order_id = ? AND status = 'paid'`,
+        )
+        .get(orderId) as { s: number }
+    ).s;
+    base = Math.max(0, received - spent);
+  }
+
+  return { legalEntity: entity, baseKopecks: base, taxKopecks: Math.round((base * entity.tax_rate) / 100) };
 }
 
 /** База знаний: заметки по проекту — что сработало, косяки, поставщики, сроки */

@@ -5,10 +5,12 @@ import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { allCatalogItems, findCatalogPrice } from "@/lib/priceCatalog";
 import { OrderCosts } from "./OrderCosts";
+import { OrderLegalEntity } from "./OrderLegalEntity";
 
 type Order = {
   id: number;
   contractor_id: number;
+  legal_entity_id: number | null;
   title: string;
   description: string | null;
   status: string;
@@ -263,6 +265,8 @@ export default function OrderDetailPage() {
           {savingItems ? "Сохраняем…" : "Сохранить позиции"}
         </button>
       </div>
+
+      <OrderLegalEntity orderId={String(id)} legalEntityId={order.legal_entity_id} onChanged={loadOrder} />
 
       <OrderCosts orderId={String(id)} onChanged={loadOrder} />
 
