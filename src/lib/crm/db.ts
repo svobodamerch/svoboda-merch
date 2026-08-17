@@ -1914,6 +1914,43 @@ export function getCostsNeedingReview(): ReviewCostRow[] {
     .all() as ReviewCostRow[];
 }
 
+export type OrphanPayment = {
+  id: number;
+  contractor_id: number | null;
+  contractor_name: string | null;
+  direction: PaymentDirection;
+  amount_kopecks: number;
+  comment: string | null;
+  paid_at: string;
+};
+
+/**
+ * Платежи, не привязанные ни к сделке, ни к статье расхода — обычно это
+ * перевод, про который на момент внесения было непонятно, к какому проекту
+ * он относится. В прибыль проектов они не попадают, поэтому висят молча,
+ * пока их не разнесут; показываем их в той же очереди разбора.
+ */
+export function getOrphanPayments(): OrphanPayment[] {
+  const db = getCrmDb();
+  return db
+    .prepare(
+      `SELECT p.id, p.contractor_id, c.name AS contractor_name, p.direction,
+              p.amount_kopecks, p.comment, p.paid_at
+       FROM payments p
+       LEFT JOIN contractors c ON c.id = p.contractor_id
+       WHERE p.order_id IS NULL AND p.category_id IS NULL
+       ORDER BY p.paid_at DESC`,
+    )
+    .all() as OrphanPayment[];
+}
+
+/** Привязать «висящий» платёж к сделке */
+export function assignPaymentToOrder(paymentId: number, orderId: number, actor?: string): void {
+  const db = getCrmDb();
+  db.prepare(`UPDATE payments SET order_id = ? WHERE id = ?`).run(orderId, paymentId);
+  logActivity("order", orderId, "payment_linked", `Платёж #${paymentId} привязан к сделке`, actor);
+}
+
 /**
  * Отметить затрату оплаченной: одним действием создаём исходящий платёж и
  * связываем его со строкой. Иначе одну и ту же трату пришлось бы вводить

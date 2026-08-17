@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "migrate": "tsx scripts/migrate.ts",
-    "seed:entities": "node scripts/seed-legal-entities.mjs"
+    "seed:entities": "node scripts/seed-legal-entities.mjs",
+    "seed:products": "node scripts/seed-products.mjs"
   },
   "dependencies": {
     "@notionhq/client": "^5.22.0",

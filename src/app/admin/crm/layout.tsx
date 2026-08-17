@@ -27,7 +27,7 @@ export default function CrmLayout({ children }: { children: ReactNode }) {
   useEffect(() => {
     fetch("/api/crm/review")
       .then((r) => r.json())
-      .then((d) => setReviewCount(d.costs?.length || 0))
+      .then((d) => setReviewCount((d.costs?.length || 0) + (d.orphanPayments?.length || 0)))
       .catch(() => {});
   }, [pathname]);
 
