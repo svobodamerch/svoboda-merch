@@ -19,6 +19,7 @@ export function getCrmDb(): Database.Database {
   ensureContractorServiceProductColumn(db);
   ensurePaymentsCategoryColumn(db);
   ensureOrderNotesColumn(db);
+  ensureContractorRequisiteColumns(db);
   ensureOrderLegalEntityColumn(db);
   ensureOrderCostReviewColumns(db);
   db.exec("CREATE INDEX IF NOT EXISTS idx_payments_category ON payments(category_id)");
@@ -84,6 +85,19 @@ function ensureOrderNotesColumn(db: Database.Database) {
   if (!cols.includes("notes")) db.exec("ALTER TABLE orders ADD COLUMN notes TEXT");
 }
 
+/** Юрреквизиты и договор появились позже contractors — добавляем на уже существующих базах */
+function ensureContractorRequisiteColumns(db: Database.Database) {
+  const cols = (db.prepare("PRAGMA table_info(contractors)").all() as { name: string }[]).map((c) => c.name);
+  const add = (name: string) => {
+    if (!cols.includes(name)) db.exec(`ALTER TABLE contractors ADD COLUMN ${name} TEXT`);
+  };
+  [
+    "kpp", "ogrn", "legal_address", "actual_address",
+    "bank_name", "bank_account", "bank_bik", "bank_corr_account",
+    "contract_number", "contract_date", "contract_basis",
+  ].forEach(add);
+}
+
 /** legal_entity_id появился позже orders — добавляем на уже существующих базах */
 function ensureOrderLegalEntityColumn(db: Database.Database) {
   const cols = (db.prepare("PRAGMA table_info(orders)").all() as { name: string }[]).map((c) => c.name);
@@ -132,6 +146,17 @@ function initSchema(db: Database.Database) {
       name TEXT NOT NULL,
       company TEXT,
       inn TEXT,
+      kpp TEXT,
+      ogrn TEXT,
+      legal_address TEXT,
+      actual_address TEXT,
+      bank_name TEXT,
+      bank_account TEXT,
+      bank_bik TEXT,
+      bank_corr_account TEXT,
+      contract_number TEXT,
+      contract_date TEXT,
+      contract_basis TEXT,
       phone TEXT,
       telegram TEXT,
       email TEXT,
@@ -142,6 +167,24 @@ function initSchema(db: Database.Database) {
     );
     CREATE INDEX IF NOT EXISTS idx_contractors_name ON contractors(name);
     CREATE INDEX IF NOT EXISTS idx_contractors_phone ON contractors(phone);
+
+    /*
+     * Контактные лица контрагента — отдельной таблицей, потому что у
+     * организации подписант и менеджер проекта почти всегда разные люди,
+     * а старые поля phone/telegram/email на самом контрагенте держат
+     * только одного.
+     */
+    CREATE TABLE IF NOT EXISTS contractor_contacts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      contractor_id INTEGER NOT NULL REFERENCES contractors(id),
+      name TEXT NOT NULL,
+      role TEXT,
+      phone TEXT,
+      email TEXT,
+      telegram TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_contractor_contacts_contractor ON contractor_contacts(contractor_id);
 
     CREATE TABLE IF NOT EXISTS orders (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -419,6 +462,17 @@ export type Contractor = {
   name: string;
   company: string | null;
   inn: string | null;
+  kpp: string | null;
+  ogrn: string | null;
+  legal_address: string | null;
+  actual_address: string | null;
+  bank_name: string | null;
+  bank_account: string | null;
+  bank_bik: string | null;
+  bank_corr_account: string | null;
+  contract_number: string | null;
+  contract_date: string | null;
+  contract_basis: string | null;
   phone: string | null;
   telegram: string | null;
   email: string | null;
@@ -426,6 +480,17 @@ export type Contractor = {
   notes: string | null;
   created_at: string;
   updated_at: string;
+};
+
+export type ContractorContact = {
+  id: number;
+  contractor_id: number;
+  name: string;
+  role: string | null;
+  phone: string | null;
+  email: string | null;
+  telegram: string | null;
+  created_at: string;
 };
 
 export type Order = {
@@ -505,6 +570,17 @@ export type ContractorInput = {
   name: string;
   company?: string;
   inn?: string;
+  kpp?: string;
+  ogrn?: string;
+  legal_address?: string;
+  actual_address?: string;
+  bank_name?: string;
+  bank_account?: string;
+  bank_bik?: string;
+  bank_corr_account?: string;
+  contract_number?: string;
+  contract_date?: string;
+  contract_basis?: string;
   phone?: string;
   telegram?: string;
   email?: string;
@@ -516,8 +592,12 @@ export function createContractor(input: ContractorInput, actor?: string): Contra
   const db = getCrmDb();
   const contractor = db
     .prepare(
-      `INSERT INTO contractors (type, name, company, inn, phone, telegram, email, address, notes)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `INSERT INTO contractors
+         (type, name, company, inn, kpp, ogrn, legal_address, actual_address,
+          bank_name, bank_account, bank_bik, bank_corr_account,
+          contract_number, contract_date, contract_basis,
+          phone, telegram, email, address, notes)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        RETURNING *`,
     )
     .get(
@@ -525,6 +605,17 @@ export function createContractor(input: ContractorInput, actor?: string): Contra
       input.name,
       input.company || null,
       input.inn || null,
+      input.kpp || null,
+      input.ogrn || null,
+      input.legal_address || null,
+      input.actual_address || null,
+      input.bank_name || null,
+      input.bank_account || null,
+      input.bank_bik || null,
+      input.bank_corr_account || null,
+      input.contract_number || null,
+      input.contract_date || null,
+      input.contract_basis || null,
       input.phone || null,
       input.telegram || null,
       input.email || null,
@@ -569,7 +660,10 @@ export function updateContractor(id: number, input: Partial<ContractorInput>): v
 
   db.prepare(
     `UPDATE contractors SET
-      type = ?, name = ?, company = ?, inn = ?, phone = ?, telegram = ?, email = ?, address = ?, notes = ?,
+      type = ?, name = ?, company = ?, inn = ?, kpp = ?, ogrn = ?, legal_address = ?, actual_address = ?,
+      bank_name = ?, bank_account = ?, bank_bik = ?, bank_corr_account = ?,
+      contract_number = ?, contract_date = ?, contract_basis = ?,
+      phone = ?, telegram = ?, email = ?, address = ?, notes = ?,
       updated_at = datetime('now')
      WHERE id = ?`,
   ).run(
@@ -577,6 +671,17 @@ export function updateContractor(id: number, input: Partial<ContractorInput>): v
     input.name ?? current.name,
     input.company ?? current.company,
     input.inn ?? current.inn,
+    input.kpp ?? current.kpp,
+    input.ogrn ?? current.ogrn,
+    input.legal_address ?? current.legal_address,
+    input.actual_address ?? current.actual_address,
+    input.bank_name ?? current.bank_name,
+    input.bank_account ?? current.bank_account,
+    input.bank_bik ?? current.bank_bik,
+    input.bank_corr_account ?? current.bank_corr_account,
+    input.contract_number ?? current.contract_number,
+    input.contract_date ?? current.contract_date,
+    input.contract_basis ?? current.contract_basis,
     input.phone ?? current.phone,
     input.telegram ?? current.telegram,
     input.email ?? current.email,
@@ -584,6 +689,38 @@ export function updateContractor(id: number, input: Partial<ContractorInput>): v
     input.notes ?? current.notes,
     id,
   );
+}
+
+// ---------- Контактные лица контрагента ----------
+
+export type ContractorContactInput = {
+  name: string;
+  role?: string;
+  phone?: string;
+  email?: string;
+  telegram?: string;
+};
+
+export function getContractorContacts(contractorId: number): ContractorContact[] {
+  const db = getCrmDb();
+  return db
+    .prepare(`SELECT * FROM contractor_contacts WHERE contractor_id = ? ORDER BY id`)
+    .all(contractorId) as ContractorContact[];
+}
+
+export function createContractorContact(contractorId: number, input: ContractorContactInput): ContractorContact {
+  const db = getCrmDb();
+  return db
+    .prepare(
+      `INSERT INTO contractor_contacts (contractor_id, name, role, phone, email, telegram)
+       VALUES (?, ?, ?, ?, ?, ?) RETURNING *`,
+    )
+    .get(contractorId, input.name, input.role || null, input.phone || null, input.email || null, input.telegram || null) as ContractorContact;
+}
+
+export function deleteContractorContact(id: number): void {
+  const db = getCrmDb();
+  db.prepare(`DELETE FROM contractor_contacts WHERE id = ?`).run(id);
 }
 
 /** Баланс: сколько контрагент нам должен (положительное) или мы ему (отрицательное), в копейках */

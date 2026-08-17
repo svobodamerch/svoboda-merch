@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
+import { ContractorContacts } from "./ContractorContacts";
 
 type Contractor = {
   id: number;
@@ -10,6 +11,17 @@ type Contractor = {
   name: string;
   company: string | null;
   inn: string | null;
+  kpp: string | null;
+  ogrn: string | null;
+  legal_address: string | null;
+  actual_address: string | null;
+  bank_name: string | null;
+  bank_account: string | null;
+  bank_bik: string | null;
+  bank_corr_account: string | null;
+  contract_number: string | null;
+  contract_date: string | null;
+  contract_basis: string | null;
   phone: string | null;
   telegram: string | null;
   email: string | null;
@@ -59,6 +71,17 @@ export default function ContractorDetailPage() {
   const [contactForm, setContactForm] = useState({
     company: "",
     inn: "",
+    kpp: "",
+    ogrn: "",
+    legalAddress: "",
+    actualAddress: "",
+    bankName: "",
+    bankAccount: "",
+    bankBik: "",
+    bankCorrAccount: "",
+    contractNumber: "",
+    contractDate: "",
+    contractBasis: "",
     phone: "",
     telegram: "",
     email: "",
@@ -84,6 +107,17 @@ export default function ContractorDetailPage() {
         setContactForm({
           company: d.contractor.company || "",
           inn: d.contractor.inn || "",
+          kpp: d.contractor.kpp || "",
+          ogrn: d.contractor.ogrn || "",
+          legalAddress: d.contractor.legal_address || "",
+          actualAddress: d.contractor.actual_address || "",
+          bankName: d.contractor.bank_name || "",
+          bankAccount: d.contractor.bank_account || "",
+          bankBik: d.contractor.bank_bik || "",
+          bankCorrAccount: d.contractor.bank_corr_account || "",
+          contractNumber: d.contractor.contract_number || "",
+          contractDate: d.contractor.contract_date || "",
+          contractBasis: d.contractor.contract_basis || "",
           phone: d.contractor.phone || "",
           telegram: d.contractor.telegram || "",
           email: d.contractor.email || "",
@@ -203,6 +237,73 @@ export default function ContractorDetailPage() {
             />
             <input
               className={field}
+              placeholder="КПП"
+              value={contactForm.kpp}
+              onChange={(e) => setContactForm((f) => ({ ...f, kpp: e.target.value }))}
+            />
+            <input
+              className={field}
+              placeholder="ОГРН / ОГРНИП"
+              value={contactForm.ogrn}
+              onChange={(e) => setContactForm((f) => ({ ...f, ogrn: e.target.value }))}
+            />
+            <input
+              className={field}
+              placeholder="Юридический адрес"
+              value={contactForm.legalAddress}
+              onChange={(e) => setContactForm((f) => ({ ...f, legalAddress: e.target.value }))}
+            />
+            <input
+              className={field}
+              placeholder="Фактический адрес"
+              value={contactForm.actualAddress}
+              onChange={(e) => setContactForm((f) => ({ ...f, actualAddress: e.target.value }))}
+            />
+            <input
+              className={`${field} sm:col-span-2`}
+              placeholder="Банк"
+              value={contactForm.bankName}
+              onChange={(e) => setContactForm((f) => ({ ...f, bankName: e.target.value }))}
+            />
+            <input
+              className={field}
+              placeholder="Расчётный счёт"
+              value={contactForm.bankAccount}
+              onChange={(e) => setContactForm((f) => ({ ...f, bankAccount: e.target.value }))}
+            />
+            <input
+              className={field}
+              placeholder="БИК"
+              value={contactForm.bankBik}
+              onChange={(e) => setContactForm((f) => ({ ...f, bankBik: e.target.value }))}
+            />
+            <input
+              className={`${field} sm:col-span-2`}
+              placeholder="Корр. счёт"
+              value={contactForm.bankCorrAccount}
+              onChange={(e) => setContactForm((f) => ({ ...f, bankCorrAccount: e.target.value }))}
+            />
+            <input
+              className={field}
+              placeholder="№ договора"
+              value={contactForm.contractNumber}
+              onChange={(e) => setContactForm((f) => ({ ...f, contractNumber: e.target.value }))}
+            />
+            <input
+              className={field}
+              placeholder="Дата договора"
+              type="date"
+              value={contactForm.contractDate}
+              onChange={(e) => setContactForm((f) => ({ ...f, contractDate: e.target.value }))}
+            />
+            <input
+              className={`${field} sm:col-span-2`}
+              placeholder="Основание (например «Договор поставки от…»)"
+              value={contactForm.contractBasis}
+              onChange={(e) => setContactForm((f) => ({ ...f, contractBasis: e.target.value }))}
+            />
+            <input
+              className={field}
               placeholder="Телефон"
               value={contactForm.phone}
               onChange={(e) => setContactForm((f) => ({ ...f, phone: e.target.value }))}
@@ -247,11 +348,41 @@ export default function ContractorDetailPage() {
                 .filter(Boolean)
                 .join(" · ") || "Контакты не указаны"}
             </p>
-            {contractor.address && <p className="label text-ink-soft mt-2">{contractor.address}</p>}
+            {(contractor.legal_address || contractor.actual_address || contractor.address) && (
+              <p className="label text-ink-soft mt-2">
+                {contractor.legal_address || contractor.address}
+                {contractor.actual_address && contractor.actual_address !== contractor.legal_address
+                  ? ` · факт: ${contractor.actual_address}`
+                  : ""}
+              </p>
+            )}
+            {(contractor.kpp || contractor.ogrn) && (
+              <p className="label text-muted mt-2">
+                {[contractor.kpp && `КПП ${contractor.kpp}`, contractor.ogrn && `ОГРН ${contractor.ogrn}`]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </p>
+            )}
+            {contractor.bank_account && (
+              <p className="label text-muted mt-1">
+                {contractor.bank_name ? `${contractor.bank_name} · ` : ""}
+                р/с {contractor.bank_account}
+                {contractor.bank_bik ? ` · БИК ${contractor.bank_bik}` : ""}
+                {contractor.bank_corr_account ? ` · к/с ${contractor.bank_corr_account}` : ""}
+              </p>
+            )}
+            {(contractor.contract_number || contractor.contract_basis) && (
+              <p className="label text-muted mt-1">
+                {contractor.contract_basis ||
+                  `Договор №${contractor.contract_number}${contractor.contract_date ? ` от ${contractor.contract_date}` : ""}`}
+              </p>
+            )}
             {contractor.notes && <p className="label text-muted mt-2 whitespace-pre-line">{contractor.notes}</p>}
           </div>
         )}
       </div>
+
+      <ContractorContacts contractorId={String(id)} />
 
       <div>
         <div className="mb-4 flex items-center justify-between">
