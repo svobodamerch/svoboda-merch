@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { allCatalogItems, findCatalogPrice } from "@/lib/priceCatalog";
+import { OrderCosts } from "./OrderCosts";
 
 type Order = {
   id: number;
@@ -262,6 +263,8 @@ export default function OrderDetailPage() {
           {savingItems ? "Сохраняем…" : "Сохранить позиции"}
         </button>
       </div>
+
+      <OrderCosts orderId={String(id)} onChanged={loadOrder} />
 
       <div>
         <p className="label text-accent mb-4">Статус</p>

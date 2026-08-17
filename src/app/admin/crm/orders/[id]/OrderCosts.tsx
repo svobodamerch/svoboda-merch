@@ -1,0 +1,363 @@
+"use client";
+
+import { useEffect, useState } from "react";
+
+type Contractor = { id: number; name: string };
+type OrderItem = { id: number; title: string };
+
+export type Cost = {
+  id: number;
+  order_item_id: number | null;
+  kind: "material" | "work" | "logistics" | "other";
+  title: string;
+  contractor_id: number | null;
+  contractor_name: string | null;
+  item_title: string | null;
+  quantity: number;
+  unit: string;
+  unit_cost_kopecks: number;
+  amount_kopecks: number;
+  supplier_invoice: string | null;
+  status: "planned" | "confirmed" | "paid";
+  payment_id: number | null;
+};
+
+export type Economics = {
+  revenueKopecks: number;
+  costPlannedKopecks: number;
+  costActualKopecks: number;
+  costPaidKopecks: number;
+  costUnpaidKopecks: number;
+  grossProfitKopecks: number;
+  marginPercent: number;
+  receivedKopecks: number;
+  receivableKopecks: number;
+  cashFlowKopecks: number;
+};
+
+const kindLabel: Record<Cost["kind"], string> = {
+  material: "Материалы",
+  work: "Работа подряда",
+  logistics: "Логистика",
+  other: "Прочее",
+};
+
+const statusLabel: Record<Cost["status"], string> = {
+  planned: "План",
+  confirmed: "Счёт получен",
+  paid: "Оплачено",
+};
+
+function money(kopecks: number): string {
+  return `${(kopecks / 100).toLocaleString("ru-RU", { maximumFractionDigits: 2 })} ₽`;
+}
+
+const field =
+  "w-full rounded-xl border border-line bg-bg px-3 py-2.5 text-[13px] text-ink outline-none focus:border-accent";
+
+const emptyForm = {
+  title: "",
+  kind: "material",
+  contractorId: "",
+  orderItemId: "",
+  quantity: "1",
+  unitCost: "",
+  amount: "",
+  supplierInvoice: "",
+  status: "confirmed",
+};
+
+export function OrderCosts({ orderId, onChanged }: { orderId: string; onChanged: () => void }) {
+  const [costs, setCosts] = useState<Cost[]>([]);
+  const [eco, setEco] = useState<Economics | null>(null);
+  const [contractors, setContractors] = useState<Contractor[]>([]);
+  const [items, setItems] = useState<OrderItem[]>([]);
+  const [form, setForm] = useState(emptyForm);
+  const [showForm, setShowForm] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  const load = () => {
+    fetch(`/api/crm/orders/${orderId}/costs`)
+      .then((r) => r.json())
+      .then((d) => {
+        setCosts(d.costs);
+        setEco(d.economics);
+      });
+  };
+
+  useEffect(() => {
+    load();
+    fetch("/api/crm/contractors")
+      .then((r) => r.json())
+      .then((d) => setContractors(d.contractors));
+    fetch(`/api/crm/orders/${orderId}/items`)
+      .then((r) => r.json())
+      .then((d) => setItems(d.items));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orderId]);
+
+  const submit = async () => {
+    if (!form.title.trim()) return;
+    setBusy(true);
+    await fetch(`/api/crm/orders/${orderId}/costs`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(form),
+    });
+    setForm(emptyForm);
+    setShowForm(false);
+    setBusy(false);
+    load();
+    onChanged();
+  };
+
+  const pay = async (costId: number) => {
+    setBusy(true);
+    await fetch(`/api/crm/order-costs/${costId}/pay`, { method: "POST" });
+    setBusy(false);
+    load();
+    onChanged();
+  };
+
+  const remove = async (costId: number) => {
+    setBusy(true);
+    await fetch(`/api/crm/order-costs/${costId}`, { method: "DELETE" });
+    setBusy(false);
+    load();
+    onChanged();
+  };
+
+  // Сумма считается из количества и цены, пока не введена явная сумма
+  const computed =
+    form.amount ||
+    ((Number(form.quantity) || 0) * (parseFloat(form.unitCost.replace(",", ".")) || 0)).toFixed(2);
+
+  return (
+    <div>
+      <div className="mb-4 flex items-center justify-between">
+        <p className="label text-accent">Себестоимость и прибыль</p>
+        <button
+          type="button"
+          onClick={() => setShowForm((v) => !v)}
+          className="pill label bg-accent text-bg hover:bg-accent-soft"
+        >
+          {showForm ? "Отмена" : "+ затрата"}
+        </button>
+      </div>
+
+      {eco && (
+        <div className="mb-5 grid gap-3 sm:grid-cols-4">
+          <Figure label="Выручка" value={money(eco.revenueKopecks)} />
+          <Figure
+            label="Себестоимость"
+            value={money(eco.costActualKopecks)}
+            hint={eco.costPlannedKopecks > 0 ? `+ план ${money(eco.costPlannedKopecks)}` : undefined}
+          />
+          <Figure
+            label="Валовая прибыль"
+            value={money(eco.grossProfitKopecks)}
+            tone={eco.grossProfitKopecks >= 0 ? "good" : "bad"}
+          />
+          <Figure
+            label="Маржа"
+            value={`${eco.marginPercent} %`}
+            tone={eco.marginPercent >= 0 ? "good" : "bad"}
+          />
+        </div>
+      )}
+
+      {eco && (
+        <div className="mb-5 grid gap-3 sm:grid-cols-3">
+          <Figure label="Получено от клиента" value={money(eco.receivedKopecks)} small />
+          <Figure
+            label="Осталось получить"
+            value={money(eco.receivableKopecks)}
+            tone={eco.receivableKopecks > 0 ? "warn" : undefined}
+            small
+          />
+          <Figure
+            label="Не оплачено поставщикам"
+            value={money(eco.costUnpaidKopecks)}
+            tone={eco.costUnpaidKopecks > 0 ? "warn" : undefined}
+            small
+          />
+        </div>
+      )}
+
+      {showForm && (
+        <div className="mb-4 grid gap-2 rounded-xl bg-surface p-3 sm:grid-cols-2">
+          <input
+            className={field}
+            placeholder="За что затрата *"
+            value={form.title}
+            onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+          />
+          <select
+            className={field}
+            value={form.kind}
+            onChange={(e) => setForm((f) => ({ ...f, kind: e.target.value }))}
+          >
+            {Object.entries(kindLabel).map(([v, l]) => (
+              <option key={v} value={v}>
+                {l}
+              </option>
+            ))}
+          </select>
+          <select
+            className={field}
+            value={form.contractorId}
+            onChange={(e) => setForm((f) => ({ ...f, contractorId: e.target.value }))}
+          >
+            <option value="">Поставщик — не указан</option>
+            {contractors.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+          <select
+            className={field}
+            value={form.orderItemId}
+            onChange={(e) => setForm((f) => ({ ...f, orderItemId: e.target.value }))}
+          >
+            <option value="">К какой позиции — общая</option>
+            {items.map((it) => (
+              <option key={it.id} value={it.id}>
+                {it.title}
+              </option>
+            ))}
+          </select>
+          <div className="grid grid-cols-3 gap-2">
+            <input
+              className={field}
+              placeholder="Кол-во"
+              inputMode="decimal"
+              value={form.quantity}
+              onChange={(e) => setForm((f) => ({ ...f, quantity: e.target.value }))}
+            />
+            <input
+              className={field}
+              placeholder="Цена за ед."
+              inputMode="decimal"
+              value={form.unitCost}
+              onChange={(e) => setForm((f) => ({ ...f, unitCost: e.target.value }))}
+            />
+            <input
+              className={field}
+              placeholder="или сумма"
+              inputMode="decimal"
+              value={form.amount}
+              onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <input
+              className={field}
+              placeholder="№ счёта поставщика"
+              value={form.supplierInvoice}
+              onChange={(e) => setForm((f) => ({ ...f, supplierInvoice: e.target.value }))}
+            />
+            <select
+              className={field}
+              value={form.status}
+              onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}
+            >
+              <option value="planned">План</option>
+              <option value="confirmed">Счёт получен</option>
+              <option value="paid">Уже оплачено</option>
+            </select>
+          </div>
+          <div className="flex items-center justify-between sm:col-span-2">
+            <span className="label text-muted">Итого: {computed} ₽</span>
+            <button
+              type="button"
+              onClick={submit}
+              disabled={busy || !form.title.trim()}
+              className="pill label bg-accent text-bg hover:bg-accent-soft disabled:bg-line disabled:text-muted"
+            >
+              {busy ? "…" : "Добавить"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      <ul className="divide-y divide-line border-t border-line">
+        {costs.map((c) => (
+          <li key={c.id} className="flex flex-wrap items-center justify-between gap-2 py-3">
+            <div className="min-w-0">
+              <p className="label text-ink">
+                {c.title}
+                {c.supplier_invoice ? ` · счёт ${c.supplier_invoice}` : ""}
+              </p>
+              <p className="label text-muted">
+                {kindLabel[c.kind]}
+                {c.contractor_name ? ` · ${c.contractor_name}` : ""}
+                {c.item_title ? ` · ${c.item_title}` : ""}
+                {c.quantity !== 1 ? ` · ${c.quantity} ${c.unit}` : ""}
+              </p>
+            </div>
+            <div className="flex shrink-0 items-center gap-3">
+              <span
+                className={`label ${
+                  c.status === "paid" ? "text-muted" : c.status === "planned" ? "text-muted" : "text-accent"
+                }`}
+              >
+                {statusLabel[c.status]}
+              </span>
+              <span className="label text-ink-soft">−{money(c.amount_kopecks)}</span>
+              {c.status !== "paid" && (
+                <button
+                  type="button"
+                  onClick={() => pay(c.id)}
+                  disabled={busy}
+                  className="label text-accent hover:underline"
+                >
+                  Отметить оплаченной
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => remove(c.id)}
+                disabled={busy}
+                className="label text-muted hover:text-accent"
+              >
+                Убрать
+              </button>
+            </div>
+          </li>
+        ))}
+      </ul>
+      {costs.length === 0 && (
+        <p className="label text-muted">
+          Затрат пока нет — добавьте счета поставщиков, чтобы увидеть прибыль проекта
+        </p>
+      )}
+    </div>
+  );
+}
+
+function Figure({
+  label,
+  value,
+  hint,
+  tone,
+  small,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+  tone?: "good" | "bad" | "warn";
+  small?: boolean;
+}) {
+  const toneClass =
+    tone === "good" ? "text-accent" : tone === "bad" ? "text-ink" : tone === "warn" ? "text-ink" : "text-ink";
+  return (
+    <div className="rounded-xl bg-surface p-4">
+      <p className="label text-muted mb-1">{label}</p>
+      <p className={`${small ? "label-lg" : "label-lg"} ${toneClass}`} style={{ fontSize: small ? "1rem" : "1.25rem" }}>
+        {value}
+      </p>
+      {hint && <p className="label text-muted mt-1">{hint}</p>}
+    </div>
+  );
+}

@@ -185,6 +185,36 @@ function initSchema(db: Database.Database) {
     );
     CREATE INDEX IF NOT EXISTS idx_order_items_order ON order_items(order_id);
 
+    /*
+     * Себестоимость заказа. Отдельно от payments сознательно: платёж — это
+     * факт движения денег, а затрата возникает раньше (пришёл счёт от
+     * поставщика) и может быть ещё не оплачена. Прибыль считается только
+     * отсюда; payments отвечает на вопрос «сколько денег ушло», а не
+     * «во сколько нам обошёлся заказ».
+     */
+    CREATE TABLE IF NOT EXISTS order_costs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      order_id INTEGER NOT NULL REFERENCES orders(id),
+      order_item_id INTEGER REFERENCES order_items(id),
+      kind TEXT NOT NULL DEFAULT 'material',
+      title TEXT NOT NULL,
+      contractor_id INTEGER REFERENCES contractors(id),
+      quantity REAL NOT NULL DEFAULT 1,
+      unit TEXT NOT NULL DEFAULT 'шт',
+      unit_cost_kopecks INTEGER NOT NULL DEFAULT 0,
+      amount_kopecks INTEGER NOT NULL DEFAULT 0,
+      supplier_invoice TEXT,
+      doc_url TEXT,
+      status TEXT NOT NULL DEFAULT 'planned',
+      payment_id INTEGER REFERENCES payments(id),
+      comment TEXT,
+      created_by TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_order_costs_order ON order_costs(order_id);
+    CREATE INDEX IF NOT EXISTS idx_order_costs_contractor ON order_costs(contractor_id);
+
     CREATE TABLE IF NOT EXISTS proposals (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       order_id INTEGER NOT NULL REFERENCES orders(id),
@@ -942,6 +972,269 @@ export function replaceOrderItems(orderId: number, items: OrderItemInput[], acto
 
   logActivity("order", orderId, "items_updated", `Состав заказа обновлён — ${items.length} поз.`, actor);
   return getOrderItems(orderId);
+}
+
+// ---------- Себестоимость заказа ----------
+
+/** Материалы (заготовки), работа подряда (пошив, печать), логистика, прочее */
+export type CostKind = "material" | "work" | "logistics" | "other";
+/** План → счёт поставщика получен → оплачено */
+export type CostStatus = "planned" | "confirmed" | "paid";
+
+export type OrderCost = {
+  id: number;
+  order_id: number;
+  order_item_id: number | null;
+  kind: CostKind;
+  title: string;
+  contractor_id: number | null;
+  quantity: number;
+  unit: string;
+  unit_cost_kopecks: number;
+  amount_kopecks: number;
+  supplier_invoice: string | null;
+  doc_url: string | null;
+  status: CostStatus;
+  payment_id: number | null;
+  comment: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type OrderCostWithLabels = OrderCost & {
+  contractor_name: string | null;
+  item_title: string | null;
+};
+
+export type OrderCostInput = {
+  order_id: number;
+  order_item_id?: number;
+  kind?: CostKind;
+  title: string;
+  contractor_id?: number;
+  quantity?: number;
+  unit?: string;
+  unit_cost_kopecks?: number;
+  amount_kopecks?: number;
+  supplier_invoice?: string;
+  doc_url?: string;
+  status?: CostStatus;
+  comment?: string;
+};
+
+const COST_SELECT = `
+  SELECT oc.*, c.name AS contractor_name, oi.title AS item_title
+  FROM order_costs oc
+  LEFT JOIN contractors c ON c.id = oc.contractor_id
+  LEFT JOIN order_items oi ON oi.id = oc.order_item_id
+`;
+
+/**
+ * Итог строки: если заданы количество и цена за единицу — считаем из них,
+ * иначе берём сумму как есть. Так одинаково удобно и «55 шт × 330,83 ₽»,
+ * и «доставка 800 ₽» одной суммой.
+ */
+function costAmount(input: OrderCostInput): number {
+  if (input.amount_kopecks != null) return Math.round(input.amount_kopecks);
+  const qty = input.quantity ?? 1;
+  return Math.round(qty * (input.unit_cost_kopecks ?? 0));
+}
+
+export function getOrderCosts(orderId: number): OrderCostWithLabels[] {
+  const db = getCrmDb();
+  return db
+    .prepare(`${COST_SELECT} WHERE oc.order_id = ? ORDER BY oc.id`)
+    .all(orderId) as OrderCostWithLabels[];
+}
+
+export function createOrderCost(input: OrderCostInput, actor?: string): OrderCost {
+  const db = getCrmDb();
+  const amount = costAmount(input);
+  const cost = db
+    .prepare(
+      `INSERT INTO order_costs
+         (order_id, order_item_id, kind, title, contractor_id, quantity, unit,
+          unit_cost_kopecks, amount_kopecks, supplier_invoice, doc_url, status, comment, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       RETURNING *`,
+    )
+    .get(
+      input.order_id,
+      input.order_item_id || null,
+      input.kind || "material",
+      input.title,
+      input.contractor_id || null,
+      input.quantity ?? 1,
+      input.unit || "шт",
+      input.unit_cost_kopecks ?? 0,
+      amount,
+      input.supplier_invoice || null,
+      input.doc_url || null,
+      input.status || "planned",
+      input.comment || null,
+      actor || null,
+    ) as OrderCost;
+
+  logActivity("order", input.order_id, "cost_added", `Затрата: «${cost.title}»`, actor);
+  return cost;
+}
+
+export function updateOrderCost(id: number, input: Partial<OrderCostInput>, actor?: string): OrderCost | undefined {
+  const db = getCrmDb();
+  const existing = db.prepare(`SELECT * FROM order_costs WHERE id = ?`).get(id) as OrderCost | undefined;
+  if (!existing) return undefined;
+
+  const merged = { ...existing, ...input } as OrderCostInput & { amount_kopecks?: number };
+  // Пересчитываем сумму, только если пришли количество или цена и не пришла явная сумма
+  const amount =
+    input.amount_kopecks != null
+      ? Math.round(input.amount_kopecks)
+      : input.quantity != null || input.unit_cost_kopecks != null
+        ? Math.round((merged.quantity ?? 1) * (merged.unit_cost_kopecks ?? 0))
+        : existing.amount_kopecks;
+
+  db.prepare(
+    `UPDATE order_costs SET
+       order_item_id = ?, kind = ?, title = ?, contractor_id = ?, quantity = ?, unit = ?,
+       unit_cost_kopecks = ?, amount_kopecks = ?, supplier_invoice = ?, doc_url = ?,
+       status = ?, comment = ?, updated_at = datetime('now')
+     WHERE id = ?`,
+  ).run(
+    merged.order_item_id || null,
+    merged.kind || "material",
+    merged.title,
+    merged.contractor_id || null,
+    merged.quantity ?? 1,
+    merged.unit || "шт",
+    merged.unit_cost_kopecks ?? 0,
+    amount,
+    merged.supplier_invoice || null,
+    merged.doc_url || null,
+    merged.status || "planned",
+    merged.comment || null,
+    id,
+  );
+
+  logActivity("order", existing.order_id, "cost_updated", `Затрата изменена: «${merged.title}»`, actor);
+  return db.prepare(`SELECT * FROM order_costs WHERE id = ?`).get(id) as OrderCost;
+}
+
+export function deleteOrderCost(id: number, actor?: string): void {
+  const db = getCrmDb();
+  const existing = db.prepare(`SELECT * FROM order_costs WHERE id = ?`).get(id) as OrderCost | undefined;
+  if (!existing) return;
+  db.prepare(`DELETE FROM order_costs WHERE id = ?`).run(id);
+  logActivity("order", existing.order_id, "cost_deleted", `Затрата удалена: «${existing.title}»`, actor);
+}
+
+/**
+ * Отметить затрату оплаченной: одним действием создаём исходящий платёж и
+ * связываем его со строкой. Иначе одну и ту же трату пришлось бы вводить
+ * дважды — и был бы риск задвоить её в отчётах.
+ */
+export function payOrderCost(
+  id: number,
+  opts: { method?: PaymentMethod; paid_at?: string } = {},
+  actor?: string,
+): OrderCost | undefined {
+  const db = getCrmDb();
+  const cost = db.prepare(`SELECT * FROM order_costs WHERE id = ?`).get(id) as OrderCost | undefined;
+  if (!cost) return undefined;
+  if (cost.payment_id) return cost;
+
+  const tx = db.transaction(() => {
+    const payment = db
+      .prepare(
+        `INSERT INTO payments (contractor_id, order_id, direction, amount_kopecks, method, comment, paid_at, source, created_by)
+         VALUES (?, ?, 'out', ?, ?, ?, COALESCE(?, datetime('now')), 'manual', ?)
+         RETURNING *`,
+      )
+      .get(
+        cost.contractor_id,
+        cost.order_id,
+        cost.amount_kopecks,
+        opts.method || "transfer",
+        cost.supplier_invoice ? `${cost.title} · счёт ${cost.supplier_invoice}` : cost.title,
+        opts.paid_at || null,
+        actor || null,
+      ) as Payment;
+
+    db.prepare(
+      `UPDATE order_costs SET status = 'paid', payment_id = ?, updated_at = datetime('now') WHERE id = ?`,
+    ).run(payment.id, id);
+  });
+  tx();
+
+  logActivity("order", cost.order_id, "cost_paid", `Оплачено: «${cost.title}»`, actor);
+  return db.prepare(`SELECT * FROM order_costs WHERE id = ?`).get(id) as OrderCost;
+}
+
+export type OrderEconomics = {
+  revenueKopecks: number;
+  costPlannedKopecks: number;
+  costActualKopecks: number;
+  costPaidKopecks: number;
+  costUnpaidKopecks: number;
+  costByKind: { kind: CostKind; totalKopecks: number }[];
+  grossProfitKopecks: number;
+  marginPercent: number;
+  receivedKopecks: number;
+  paidOutKopecks: number;
+  receivableKopecks: number;
+  cashFlowKopecks: number;
+};
+
+/**
+ * Экономика заказа. Себестоимость берётся только из order_costs — платежи
+ * поставщикам в неё не суммируются, иначе оплаченная затрата посчиталась бы
+ * дважды. Платежи отвечают отдельно, за движение денег.
+ */
+export function getOrderEconomics(orderId: number): OrderEconomics {
+  const db = getCrmDb();
+
+  const revenue = (
+    db.prepare(`SELECT amount_kopecks FROM orders WHERE id = ?`).get(orderId) as
+      | { amount_kopecks: number }
+      | undefined
+  )?.amount_kopecks ?? 0;
+
+  const costs = db
+    .prepare(`SELECT kind, status, amount_kopecks FROM order_costs WHERE order_id = ?`)
+    .all(orderId) as { kind: CostKind; status: CostStatus; amount_kopecks: number }[];
+
+  // План — прикидка до счёта; факт — то, что подтверждено документом или уже оплачено
+  const costPlanned = costs.filter((c) => c.status === "planned").reduce((s, c) => s + c.amount_kopecks, 0);
+  const costActual = costs.filter((c) => c.status !== "planned").reduce((s, c) => s + c.amount_kopecks, 0);
+  const costPaid = costs.filter((c) => c.status === "paid").reduce((s, c) => s + c.amount_kopecks, 0);
+
+  const byKind = new Map<CostKind, number>();
+  for (const c of costs) byKind.set(c.kind, (byKind.get(c.kind) || 0) + c.amount_kopecks);
+
+  const cash = db
+    .prepare(
+      `SELECT direction, SUM(amount_kopecks) AS total FROM payments WHERE order_id = ? GROUP BY direction`,
+    )
+    .all(orderId) as { direction: PaymentDirection; total: number }[];
+  const received = cash.find((r) => r.direction === "in")?.total ?? 0;
+  const paidOut = cash.find((r) => r.direction === "out")?.total ?? 0;
+
+  const gross = revenue - costActual;
+
+  return {
+    revenueKopecks: revenue,
+    costPlannedKopecks: costPlanned,
+    costActualKopecks: costActual,
+    costPaidKopecks: costPaid,
+    costUnpaidKopecks: costActual - costPaid,
+    costByKind: [...byKind.entries()].map(([kind, totalKopecks]) => ({ kind, totalKopecks })),
+    grossProfitKopecks: gross,
+    marginPercent: revenue > 0 ? Math.round((gross / revenue) * 1000) / 10 : 0,
+    receivedKopecks: received,
+    paidOutKopecks: paidOut,
+    receivableKopecks: revenue - received,
+    cashFlowKopecks: received - paidOut,
+  };
 }
 
 // ---------- КП (proposals) ----------
