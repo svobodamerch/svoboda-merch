@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { allCatalogItems, findCatalogPrice } from "@/lib/priceCatalog";
 import { OrderCosts } from "./OrderCosts";
 import { OrderLegalEntity } from "./OrderLegalEntity";
+import { OrderDocuments } from "./OrderDocuments";
 
 type Order = {
   id: number;
@@ -267,6 +268,8 @@ export default function OrderDetailPage() {
       </div>
 
       <OrderLegalEntity orderId={String(id)} legalEntityId={order.legal_entity_id} onChanged={loadOrder} />
+
+      <OrderDocuments orderId={String(id)} contractorId={order.contractor_id} legalEntityId={order.legal_entity_id} />
 
       <OrderCosts orderId={String(id)} onChanged={loadOrder} />
 

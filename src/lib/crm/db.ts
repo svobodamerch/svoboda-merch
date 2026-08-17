@@ -1514,8 +1514,18 @@ function snapshotBuyer(c: Contractor): string {
   return JSON.stringify({
     name: c.company || c.name,
     inn: c.inn,
-    address: c.address,
+    kpp: c.kpp,
+    address: c.legal_address || c.address,
     contact: c.name,
+    bank:
+      c.bank_account || c.bank_name
+        ? {
+            bank_name: c.bank_name,
+            bik: c.bank_bik,
+            corr_account: c.bank_corr_account,
+            account_number: c.bank_account,
+          }
+        : null,
   });
 }
 
@@ -1716,6 +1726,66 @@ export function createActFromInvoice(invoiceId: number, actor?: string): Documen
     },
     actor,
   );
+}
+
+/**
+ * Редактирование черновика: позиции, счёт, основание, комментарий.
+ * Выставленный или оплаченный документ уже мог уйти клиенту — задним
+ * числом меняем только статус (см. updateDocumentStatus), не содержимое,
+ * иначе то, что клиент видел, разойдётся с тем, что хранит CRM.
+ */
+export function updateDocument(
+  id: number,
+  input: { bank_account_id?: number; basis?: string; comment?: string; doc_date?: string; items?: DocumentItemInput[] },
+  actor?: string,
+): DocumentRow | undefined {
+  const db = getCrmDb();
+  const doc = getDocumentById(id);
+  if (!doc) return undefined;
+  if (doc.status !== "draft") throw new Error("Редактировать можно только черновик");
+
+  const entity = getLegalEntity(doc.legal_entity_id)!;
+  const accounts = getBankAccounts(entity.id);
+  const account = input.bank_account_id
+    ? accounts.find((a) => a.id === input.bank_account_id)
+    : accounts.find((a) => a.id === doc.bank_account_id);
+
+  const tx = db.transaction(() => {
+    if (input.items) {
+      db.prepare(`DELETE FROM document_items WHERE document_id = ?`).run(id);
+      const items = input.items.filter((i) => i.title.trim());
+      const total = items.reduce((s, i) => s + Math.round((i.quantity ?? 1) * i.unit_price_kopecks), 0);
+      const insert = db.prepare(
+        `INSERT INTO document_items (document_id, position, title, quantity, unit, unit_price_kopecks, amount_kopecks)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      );
+      items.forEach((i, idx) => {
+        const qty = i.quantity ?? 1;
+        insert.run(id, idx + 1, i.title, qty, i.unit || "шт", i.unit_price_kopecks, Math.round(qty * i.unit_price_kopecks));
+      });
+      db.prepare(`UPDATE documents SET total_kopecks = ? WHERE id = ?`).run(total, id);
+    }
+
+    db.prepare(
+      `UPDATE documents SET
+         bank_account_id = ?, basis = ?, comment = ?, doc_date = COALESCE(?, doc_date),
+         supplier_snapshot = ?, updated_at = datetime('now')
+       WHERE id = ?`,
+    ).run(
+      account?.id ?? doc.bank_account_id,
+      input.basis ?? doc.basis,
+      input.comment ?? doc.comment,
+      input.doc_date || null,
+      snapshotSupplier(entity, account),
+      id,
+    );
+  });
+  tx();
+
+  if (doc.order_id) {
+    logActivity("order", doc.order_id, "document_updated", `Документ №${doc.number} изменён`, actor);
+  }
+  return db.prepare(`SELECT * FROM documents WHERE id = ?`).get(id) as DocumentRow;
 }
 
 export function deleteDocument(id: number): void {

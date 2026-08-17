@@ -17,6 +17,7 @@ const tabs = [
   { href: "/admin/crm/knowledge", label: "База знаний" },
   { href: "/admin/crm/review", label: "Разбор" },
   { href: "/admin/crm/legal-entities", label: "Юрлица" },
+  { href: "/admin/crm/documents", label: "Документы" },
 ];
 
 export default function CrmLayout({ children }: { children: ReactNode }) {
