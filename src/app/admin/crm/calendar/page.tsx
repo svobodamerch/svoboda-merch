@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
-type CalEvent = { id: number; title: string; date: string; type: "order" | "task" };
+type CalEvent = { id: number; title: string; description: string | null; date: string; type: "order" | "task" };
 
 const WEEKDAYS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
 const MONTHS = [
@@ -11,8 +11,12 @@ const MONTHS = [
   "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь",
 ];
 
+/** Дата ячейки — по локальным году/месяцу/дню, без ухода в UTC (иначе в UTC+7 день съезжает назад) */
 function toKey(d: Date): string {
-  return d.toISOString().slice(0, 10);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
 
 export default function CalendarPage() {
@@ -22,6 +26,7 @@ export default function CalendarPage() {
     return new Date(d.getFullYear(), d.getMonth(), 1);
   });
   const [selected, setSelected] = useState<string | null>(null);
+  const [openEvent, setOpenEvent] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/crm/calendar")
@@ -128,18 +133,35 @@ export default function CalendarPage() {
             <p className="label text-muted">Ничего не запланировано</p>
           ) : (
             <ul className="divide-y divide-line border-t border-line">
-              {selectedEvents.map((e) => (
-                <li key={`${e.type}-${e.id}`} className="flex items-center justify-between py-3">
-                  {e.type === "order" ? (
-                    <Link href={`/admin/crm/orders/${e.id}`} className="label text-ink hover:text-accent">
-                      Заказ: {e.title}
-                    </Link>
-                  ) : (
-                    <span className="label text-ink">Задача: {e.title}</span>
-                  )}
-                  <span className="label text-muted">{e.type === "order" ? "срок заказа" : "задача"}</span>
-                </li>
-              ))}
+              {selectedEvents.map((e) => {
+                const key = `${e.type}-${e.id}`;
+                const isOpen = openEvent === key;
+                return (
+                  <li key={key} className="py-3">
+                    <div className="flex items-center justify-between">
+                      {e.type === "order" ? (
+                        <Link href={`/admin/crm/orders/${e.id}`} className="label text-ink hover:text-accent">
+                          Заказ: {e.title}
+                        </Link>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setOpenEvent(isOpen ? null : key)}
+                          className="label text-ink text-left hover:text-accent"
+                        >
+                          Задача: {e.title}
+                        </button>
+                      )}
+                      <span className="label text-muted shrink-0">
+                        {e.type === "order" ? "срок заказа" : "задача"}
+                      </span>
+                    </div>
+                    {e.type === "task" && isOpen && (
+                      <p className="label text-muted mt-2">{e.description || "Без описания"}</p>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>
