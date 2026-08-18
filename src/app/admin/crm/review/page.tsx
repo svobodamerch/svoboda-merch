@@ -27,6 +27,15 @@ type OrphanPayment = {
   paid_at: string;
 };
 
+type MtTransaction = {
+  id: string;
+  occurred_at: string;
+  type: "income" | "expense";
+  amount_kopecks: number;
+  comment: string;
+  category: string;
+};
+
 function money(kopecks: number): string {
   return `${(kopecks / 100).toLocaleString("ru-RU", { maximumFractionDigits: 2 })} ₽`;
 }
@@ -37,11 +46,15 @@ const field =
 export default function ReviewQueuePage() {
   const [costs, setCosts] = useState<ReviewCost[]>([]);
   const [payments, setPayments] = useState<OrphanPayment[]>([]);
+  const [mtTransactions, setMtTransactions] = useState<MtTransaction[]>([]);
   const [contractors, setContractors] = useState<Contractor[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [drafts, setDrafts] = useState<Record<number, string>>({});
   const [payDrafts, setPayDrafts] = useState<Record<number, string>>({});
+  const [mtContractorDrafts, setMtContractorDrafts] = useState<Record<string, string>>({});
+  const [mtOrderDrafts, setMtOrderDrafts] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState<number | null>(null);
+  const [mtBusy, setMtBusy] = useState<string | null>(null);
 
   const load = () => {
     fetch("/api/crm/review")
@@ -49,6 +62,7 @@ export default function ReviewQueuePage() {
       .then((d) => {
         setCosts(d.costs);
         setPayments(d.orphanPayments || []);
+        setMtTransactions(d.moneyTreker || []);
         setDrafts(
           Object.fromEntries(d.costs.map((c: ReviewCost) => [c.id, c.contractor_id ? String(c.contractor_id) : ""])),
         );
@@ -87,7 +101,32 @@ export default function ReviewQueuePage() {
     load();
   };
 
-  const nothingToDo = costs.length === 0 && payments.length === 0;
+  const linkMt = async (id: string) => {
+    setMtBusy(id);
+    await fetch(`/api/crm/review/money-treker/${id}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contractorId: mtContractorDrafts[id] || undefined,
+        orderId: mtOrderDrafts[id] || undefined,
+      }),
+    });
+    setMtBusy(null);
+    load();
+  };
+
+  const dismissMt = async (id: string) => {
+    setMtBusy(id);
+    await fetch(`/api/crm/review/money-treker/${id}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ dismiss: true }),
+    });
+    setMtBusy(null);
+    load();
+  };
+
+  const nothingToDo = costs.length === 0 && payments.length === 0 && mtTransactions.length === 0;
 
   return (
     <div className="space-y-10">
@@ -138,6 +177,70 @@ export default function ReviewQueuePage() {
                     className="pill label bg-accent text-bg hover:bg-accent-soft disabled:bg-line disabled:text-muted"
                   >
                     Привязать
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {mtTransactions.length > 0 && (
+        <div>
+          <p className="label text-accent mb-1">Из Money Treker · {mtTransactions.length}</p>
+          <p className="label text-muted mb-4">
+            Бизнес-операции из трекера, ещё не разнесённые по сделкам. Свяжите с контрагентом и сделкой — станет
+            платежом в CRM, или отклоните, если это не по делу.
+          </p>
+          <ul className="divide-y divide-line border-t border-line">
+            {mtTransactions.map((t) => (
+              <li key={t.id} className="py-4">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <span className="label text-ink">{t.comment || t.category}</span>
+                  <span className={`label ${t.type === "income" ? "text-accent" : "text-ink-soft"}`}>
+                    {t.type === "income" ? "+" : "−"}
+                    {money(t.amount_kopecks)}
+                  </span>
+                </div>
+                <p className="label text-muted mt-1">
+                  {new Date(t.occurred_at).toLocaleDateString("ru-RU")} · {t.category}
+                </p>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <div className="w-56">
+                    <ContractorPicker
+                      contractors={contractors}
+                      value={mtContractorDrafts[t.id] ?? ""}
+                      onChange={(id) => setMtContractorDrafts((d) => ({ ...d, [t.id]: id }))}
+                      placeholder="Контрагент (необязательно)"
+                    />
+                  </div>
+                  <select
+                    className={field}
+                    value={mtOrderDrafts[t.id] ?? ""}
+                    onChange={(e) => setMtOrderDrafts((d) => ({ ...d, [t.id]: e.target.value }))}
+                  >
+                    <option value="">К какой сделке (необязательно)…</option>
+                    {orders.map((o) => (
+                      <option key={o.id} value={o.id}>
+                        {o.title}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => linkMt(t.id)}
+                    disabled={mtBusy === t.id}
+                    className="pill label bg-accent text-bg hover:bg-accent-soft disabled:bg-line disabled:text-muted"
+                  >
+                    Разнести
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => dismissMt(t.id)}
+                    disabled={mtBusy === t.id}
+                    className="label text-muted hover:text-accent"
+                  >
+                    Не по делу — скрыть
                   </button>
                 </div>
               </li>

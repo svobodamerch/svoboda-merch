@@ -1,4 +1,5 @@
 import Database from "better-sqlite3";
+import fs from "fs";
 import path from "path";
 import { randomBytes } from "crypto";
 
@@ -442,6 +443,20 @@ function initSchema(db: Database.Database) {
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
     CREATE INDEX IF NOT EXISTS idx_contractor_services_contractor ON contractor_services(contractor_id);
+
+    /*
+     * Отметка «эта операция Money Treker уже разнесена в CRM» — храним
+     * здесь, а не в Money Treker (его схему не трогаем, только читаем).
+     * UNIQUE на mt_transaction_id — разнести одну операцию дважды нельзя.
+     */
+    CREATE TABLE IF NOT EXISTS money_treker_links (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      mt_transaction_id TEXT NOT NULL UNIQUE,
+      order_cost_id INTEGER REFERENCES order_costs(id),
+      payment_id INTEGER REFERENCES payments(id),
+      created_by TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
   `);
 }
 
@@ -1055,14 +1070,15 @@ export type PaymentInput = {
   method?: PaymentMethod;
   comment?: string;
   source?: string;
+  paid_at?: string;
 };
 
 export function createPayment(input: PaymentInput, actor?: string): Payment {
   const db = getCrmDb();
   const payment = db
     .prepare(
-      `INSERT INTO payments (contractor_id, category_id, order_id, direction, amount_kopecks, method, comment, source, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `INSERT INTO payments (contractor_id, category_id, order_id, direction, amount_kopecks, method, comment, source, paid_at, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')), ?)
        RETURNING *`,
     )
     .get(
@@ -1074,6 +1090,7 @@ export function createPayment(input: PaymentInput, actor?: string): Payment {
       input.method || "transfer",
       input.comment || null,
       input.source || "manual",
+      input.paid_at || null,
       actor || null,
     ) as Payment;
 
@@ -2019,6 +2036,98 @@ export function assignPaymentToOrder(paymentId: number, orderId: number, actor?:
   const db = getCrmDb();
   db.prepare(`UPDATE payments SET order_id = ? WHERE id = ?`).run(orderId, paymentId);
   logActivity("order", orderId, "payment_linked", `Платёж #${paymentId} привязан к сделке`, actor);
+}
+
+// ---------- Money Treker: очередь на разбор ----------
+
+export type MtTransaction = {
+  id: string;
+  occurred_at: string;
+  type: "income" | "expense";
+  amount: number;
+  comment: string;
+  category: string;
+};
+
+/**
+ * Отдельные бизнес-операции из Money Treker (не месячные агрегаты, как
+ * moneyTreker.ts для P&L) — построчный экспорт для очереди разбора.
+ * Тот же приём, что и с money-treker.json: файл раз в сутки обновляет
+ * cron на сервере, здесь только читаем.
+ */
+function readMtTransactions(): MtTransaction[] {
+  const file =
+    process.env.MONEY_TREKER_TRANSACTIONS_FILE ||
+    path.join(process.cwd(), "data", "money-treker-transactions.json");
+  try {
+    const raw = JSON.parse(fs.readFileSync(file, "utf8"));
+    return Array.isArray(raw.transactions) ? raw.transactions : [];
+  } catch {
+    return [];
+  }
+}
+
+export type MtTransactionForReview = MtTransaction & { amount_kopecks: number };
+
+/** Операции Money Treker, ещё не разнесённые в CRM (нет записи в money_treker_links) */
+export function getUnlinkedMtTransactions(): MtTransactionForReview[] {
+  const db = getCrmDb();
+  const linked = new Set(
+    (db.prepare(`SELECT mt_transaction_id FROM money_treker_links`).all() as { mt_transaction_id: string }[]).map(
+      (r) => r.mt_transaction_id,
+    ),
+  );
+  return readMtTransactions()
+    .filter((t) => !linked.has(t.id))
+    .map((t) => ({ ...t, amount_kopecks: Math.round(t.amount * 100) }));
+}
+
+/**
+ * Разнести операцию Money Treker: создаёт платёж с датой самой операции
+ * (не «сегодня» — иначе история платежей врёт о том, когда деньги реально
+ * двигались) и запоминает связь, чтобы очередь не предлагала её повторно.
+ */
+export function linkMtTransaction(
+  mtTransactionId: string,
+  input: { contractorId?: number; orderId?: number; categoryId?: number; comment?: string },
+  actor?: string,
+): Payment | undefined {
+  const tx = readMtTransactions().find((t) => t.id === mtTransactionId);
+  if (!tx) return undefined;
+
+  const db = getCrmDb();
+  const already = db
+    .prepare(`SELECT id FROM money_treker_links WHERE mt_transaction_id = ?`)
+    .get(mtTransactionId);
+  if (already) return undefined;
+
+  const payment = createPayment(
+    {
+      contractor_id: input.contractorId,
+      category_id: input.categoryId,
+      order_id: input.orderId,
+      direction: tx.type === "income" ? "in" : "out",
+      amount_kopecks: Math.round(tx.amount * 100),
+      comment: input.comment || tx.comment || undefined,
+      paid_at: tx.occurred_at,
+      source: "money_treker",
+    },
+    actor,
+  );
+
+  db.prepare(
+    `INSERT INTO money_treker_links (mt_transaction_id, payment_id, created_by) VALUES (?, ?, ?)`,
+  ).run(mtTransactionId, payment.id, actor || null);
+
+  return payment;
+}
+
+/** Скрыть операцию из очереди без создания платежа — например, дубль или личное, ошибочно попавшее в business */
+export function dismissMtTransaction(mtTransactionId: string, actor?: string): void {
+  const db = getCrmDb();
+  db.prepare(
+    `INSERT OR IGNORE INTO money_treker_links (mt_transaction_id, created_by) VALUES (?, ?)`,
+  ).run(mtTransactionId, actor || null);
 }
 
 /**
