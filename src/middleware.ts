@@ -16,18 +16,36 @@ const DISABLED_PATHS = [
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const host = request.headers.get("host") || "";
 
   // qr.svoboda.site — отдельный домен на этом же процессе,
   // главная страница подменяется на /qr без изменения URL в адресной строке
-  if (pathname === "/" && request.headers.get("host")?.startsWith("qr.")) {
+  if (pathname === "/" && host.startsWith("qr.")) {
     return NextResponse.rewrite(new URL("/qr", request.url));
   }
 
+  /*
+   * crm.svoboda.site — тот же процесс на другом хосте, без отдельного
+   * деплоя. Корень ведёт в дашборд; одиночный сегмент вроде /kustikova —
+   * это слаг портала подрядчика (переписываем в /portal/<slug>, портал
+   * сам не требует логина — у него свой пароль по телефону). Остальные
+   * пути (/admin/crm/..., /api/crm/...) не трогаем — работают как есть.
+   */
+  let rewriteTo: string | null = null;
+  if (host.startsWith("crm.")) {
+    if (pathname === "/") {
+      rewriteTo = "/admin/crm";
+    } else if (/^\/[a-z0-9-]+$/i.test(pathname) && pathname !== "/admin" && pathname !== "/api") {
+      rewriteTo = `/portal${pathname}`;
+    }
+  }
+  const effectivePathname = rewriteTo || pathname;
+
   // /admin/* — раньше был просто заглушкой-редиректом, теперь настоящий логин.
   // /admin/login и /api/crm/auth/* сами себя не защищают.
-  const isProtectedPage = pathname.startsWith("/admin") && pathname !== "/admin/login";
+  const isProtectedPage = effectivePathname.startsWith("/admin") && effectivePathname !== "/admin/login";
   const isProtectedApi =
-    pathname.startsWith("/api/crm") && !pathname.startsWith("/api/crm/auth");
+    effectivePathname.startsWith("/api/crm") && !effectivePathname.startsWith("/api/crm/auth");
 
   if (isProtectedPage || isProtectedApi) {
     const session = await verifySession(request.cookies.get(SESSION_COOKIE)?.value);
@@ -36,9 +54,13 @@ export async function middleware(request: NextRequest) {
         return NextResponse.json({ error: "Не авторизован" }, { status: 401 });
       }
       const loginUrl = new URL("/admin/login", request.url);
-      loginUrl.searchParams.set("next", pathname);
+      loginUrl.searchParams.set("next", effectivePathname);
       return NextResponse.redirect(loginUrl);
     }
+  }
+
+  if (rewriteTo) {
+    return NextResponse.rewrite(new URL(rewriteTo, request.url));
   }
 
   // Редирект отключённых страниц на главную
@@ -55,6 +77,10 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     "/",
+    // одиночный сегмент на любом хосте — нужно, чтобы поймать /kustikova
+    // на crm.svoboda.site; на основном домене middleware для таких путей
+    // просто ничего не делает (host не начинается с crm.)
+    "/:slug",
     "/catalog/:path*",
     "/production/:path*",
     "/process/:path*",

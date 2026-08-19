@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 import { ContractorContacts } from "./ContractorContacts";
+import { PortalLink } from "./PortalLink";
 
 type Contractor = {
   id: number;
@@ -27,6 +28,7 @@ type Contractor = {
   email: string | null;
   address: string | null;
   notes: string | null;
+  portal_slug: string | null;
 };
 type Order = { id: number; title: string; status: string; amount_kopecks: number; created_at: string };
 type Payment = {
@@ -381,6 +383,8 @@ export default function ContractorDetailPage() {
           </div>
         )}
       </div>
+
+      <PortalLink contractorId={String(id)} slug={contractor.portal_slug} />
 
       <ContractorContacts contractorId={String(id)} />
 

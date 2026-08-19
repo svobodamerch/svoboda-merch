@@ -97,6 +97,10 @@ function ensureContractorRequisiteColumns(db: Database.Database) {
     "bank_name", "bank_account", "bank_bik", "bank_corr_account",
     "contract_number", "contract_date", "contract_basis",
   ].forEach(add);
+  if (!cols.includes("portal_slug")) {
+    db.exec("ALTER TABLE contractors ADD COLUMN portal_slug TEXT");
+    db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_contractors_portal_slug ON contractors(portal_slug)");
+  }
 }
 
 /** legal_entity_id появился позже orders — добавляем на уже существующих базах */
@@ -493,6 +497,7 @@ export type Contractor = {
   email: string | null;
   address: string | null;
   notes: string | null;
+  portal_slug: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -655,6 +660,126 @@ export function getContractors(type?: ContractorType): Contractor[] {
 export function getContractorById(id: number): Contractor | undefined {
   const db = getCrmDb();
   return db.prepare(`SELECT * FROM contractors WHERE id = ?`).get(id) as Contractor | undefined;
+}
+
+// ---------- Портал подрядчика ----------
+
+const RESERVED_SLUGS = new Set([
+  "admin", "api", "kp", "portal", "shop", "magazin", "konstruktor",
+  "favicon.ico", "robots.txt", "sitemap.xml", "legal", "birka", "qr",
+]);
+
+function transliterate(text: string): string {
+  const map: Record<string, string> = {
+    а:"a",б:"b",в:"v",г:"g",д:"d",е:"e",ё:"e",ж:"zh",з:"z",и:"i",й:"y",
+    к:"k",л:"l",м:"m",н:"n",о:"o",п:"p",р:"r",с:"s",т:"t",у:"u",ф:"f",
+    х:"h",ц:"ts",ч:"ch",ш:"sh",щ:"sch",ъ:"",ы:"y",ь:"",э:"e",ю:"yu",я:"ya",
+  };
+  return text
+    .toLowerCase()
+    .split("")
+    .map((ch) => map[ch] ?? ch)
+    .join("")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+/** Слаг для ссылки на портал — генерируется один раз из имени, не меняется задним числом при переименовании */
+export function ensureContractorPortalSlug(id: number): string {
+  const db = getCrmDb();
+  const contractor = getContractorById(id);
+  if (!contractor) throw new Error("Контрагент не найден");
+  if (contractor.portal_slug) return contractor.portal_slug;
+
+  const base = transliterate(contractor.name) || `contractor-${id}`;
+  let slug = RESERVED_SLUGS.has(base) ? `${base}-1` : base;
+  let n = 2;
+  while (db.prepare(`SELECT 1 FROM contractors WHERE portal_slug = ?`).get(slug)) {
+    slug = `${base}-${n}`;
+    n += 1;
+  }
+
+  db.prepare(`UPDATE contractors SET portal_slug = ? WHERE id = ?`).run(slug, id);
+  return slug;
+}
+
+export function getContractorByPortalSlug(slug: string): Contractor | undefined {
+  const db = getCrmDb();
+  return db.prepare(`SELECT * FROM contractors WHERE portal_slug = ?`).get(slug) as Contractor | undefined;
+}
+
+/** Пароль портала — номер телефона подрядчика без первой цифры (обычно 8/+7) и разделителей */
+export function checkPortalPassword(contractor: Contractor, password: string): boolean {
+  if (!contractor.phone) return false;
+  const digits = contractor.phone.replace(/\D/g, "");
+  const expected = digits.replace(/^[78]/, "");
+  const given = password.replace(/\D/g, "");
+  return !!expected && expected === given;
+}
+
+export type PortalCostRow = {
+  id: number;
+  order_id: number;
+  order_title: string;
+  kind: CostKind;
+  title: string;
+  quantity: number;
+  unit: string;
+  amount_kopecks: number;
+  status: CostStatus;
+};
+
+export type PortalPaymentRow = {
+  id: number;
+  amount_kopecks: number;
+  comment: string | null;
+  paid_at: string;
+};
+
+export type ContractorPortalData = {
+  contractorName: string;
+  costs: PortalCostRow[];
+  payments: PortalPaymentRow[];
+  totalAccruedKopecks: number;
+  totalPaidKopecks: number;
+  remainingKopecks: number;
+};
+
+/** Всё, что подрядчику нужно видеть о своей работе с нами — только её собственные строки, ничего чужого */
+export function getContractorPortalData(contractorId: number): ContractorPortalData {
+  const db = getCrmDb();
+  const contractor = getContractorById(contractorId);
+
+  const costs = db
+    .prepare(
+      `SELECT oc.id, oc.order_id, o.title AS order_title, oc.kind, oc.title, oc.quantity, oc.unit,
+              oc.amount_kopecks, oc.status
+       FROM order_costs oc
+       JOIN orders o ON o.id = oc.order_id
+       WHERE oc.contractor_id = ?
+       ORDER BY oc.created_at DESC`,
+    )
+    .all(contractorId) as PortalCostRow[];
+
+  const payments = db
+    .prepare(
+      `SELECT id, amount_kopecks, comment, paid_at FROM payments
+       WHERE contractor_id = ? AND direction = 'out'
+       ORDER BY paid_at DESC`,
+    )
+    .all(contractorId) as PortalPaymentRow[];
+
+  const accrued = costs.filter((c) => c.status !== "planned").reduce((s, c) => s + c.amount_kopecks, 0);
+  const paid = payments.reduce((s, p) => s + p.amount_kopecks, 0);
+
+  return {
+    contractorName: contractor?.name || "",
+    costs,
+    payments,
+    totalAccruedKopecks: accrued,
+    totalPaidKopecks: paid,
+    remainingKopecks: accrued - paid,
+  };
 }
 
 /** Поиск по имени/телефону/компании — используется и сайтом, и ботом */

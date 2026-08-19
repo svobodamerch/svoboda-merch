@@ -45,11 +45,11 @@ export default function CrmLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen bg-bg">
-      <div className="hidden sm:flex">
+      <div className="hidden sm:flex print:hidden">
         <Sidebar />
 
         <div className="min-w-0 flex-1">
-          <header className="border-b border-line">
+          <header className="border-b border-line print:hidden">
             <Container className="flex h-16 items-center justify-end gap-4">
               <Link
                 href="/admin/crm/review"
@@ -68,11 +68,11 @@ export default function CrmLayout({ children }: { children: ReactNode }) {
               </button>
             </Container>
           </header>
-          <Container className="py-8">{children}</Container>
+          <Container className="py-8 print:max-w-none print:p-0">{children}</Container>
         </div>
       </div>
 
-      <div className="sm:hidden">
+      <div className="sm:hidden print:hidden">
         <header className="border-b border-line px-4">
           <div className="flex h-16 items-center justify-between">
             <span className="label-lg text-ink">[СВОБОДА]* CRM</span>
