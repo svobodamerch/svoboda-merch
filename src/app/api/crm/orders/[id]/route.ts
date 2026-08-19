@@ -10,6 +10,7 @@ import {
   type OrderStatus,
 } from "@/lib/crm/db";
 import { getCurrentActor } from "@/lib/crm/current-user";
+import { getProjectFinancials } from "@/lib/crm/finance";
 
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const id = Number((await params).id);
@@ -23,6 +24,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     payments: getPaymentsByOrder(id),
     activity: getActivity("order", id),
     tax: getOrderTax(id),
+    financials: getProjectFinancials(id),
   });
 }
 

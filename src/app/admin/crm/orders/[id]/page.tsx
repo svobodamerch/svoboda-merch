@@ -7,6 +7,8 @@ import { allCatalogItems, findCatalogPrice } from "@/lib/priceCatalog";
 import { OrderCosts } from "./OrderCosts";
 import { OrderLegalEntity } from "./OrderLegalEntity";
 import { OrderDocuments } from "./OrderDocuments";
+import { ProjectEconomics } from "./ProjectEconomics";
+import type { ProjectFinancials } from "@/lib/crm/finance";
 
 type Order = {
   id: number;
@@ -31,7 +33,12 @@ type OrderItem = {
   discount_percent: number;
 };
 
-type Detail = { order: Order; payments: Payment[]; activity: ActivityEntry[] };
+type Detail = {
+  order: Order;
+  payments: Payment[];
+  activity: ActivityEntry[];
+  financials: ProjectFinancials;
+};
 
 type ItemRow = {
   title: string;
@@ -183,6 +190,8 @@ export default function OrderDetailPage() {
           </Link>
         </div>
       </div>
+
+      <ProjectEconomics data={data.financials} />
 
       <div>
         <p className="label text-accent mb-4">Позиции</p>

@@ -25,19 +25,6 @@ export type Cost = {
   review_note: string | null;
 };
 
-export type Economics = {
-  revenueKopecks: number;
-  costPlannedKopecks: number;
-  costActualKopecks: number;
-  costPaidKopecks: number;
-  costUnpaidKopecks: number;
-  grossProfitKopecks: number;
-  marginPercent: number;
-  receivedKopecks: number;
-  receivableKopecks: number;
-  cashFlowKopecks: number;
-};
-
 const kindLabel: Record<Cost["kind"], string> = {
   material: "Материалы",
   work: "Работа подряда",
@@ -74,7 +61,6 @@ const emptyForm = {
 
 export function OrderCosts({ orderId, onChanged }: { orderId: string; onChanged: () => void }) {
   const [costs, setCosts] = useState<Cost[]>([]);
-  const [eco, setEco] = useState<Economics | null>(null);
   const [contractors, setContractors] = useState<Contractor[]>([]);
   const [items, setItems] = useState<OrderItem[]>([]);
   const [form, setForm] = useState(emptyForm);
@@ -86,7 +72,6 @@ export function OrderCosts({ orderId, onChanged }: { orderId: string; onChanged:
       .then((r) => r.json())
       .then((d) => {
         setCosts(d.costs);
-        setEco(d.economics);
       });
   };
 
@@ -140,7 +125,7 @@ export function OrderCosts({ orderId, onChanged }: { orderId: string; onChanged:
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <p className="label text-accent">Себестоимость и прибыль</p>
+        <p className="label text-accent">Затраты</p>
         <button
           type="button"
           onClick={() => setShowForm((v) => !v)}
@@ -150,44 +135,8 @@ export function OrderCosts({ orderId, onChanged }: { orderId: string; onChanged:
         </button>
       </div>
 
-      {eco && (
-        <div className="mb-5 grid gap-3 sm:grid-cols-4">
-          <Figure label="Выручка" value={money(eco.revenueKopecks)} />
-          <Figure
-            label="Себестоимость"
-            value={money(eco.costActualKopecks)}
-            hint={eco.costPlannedKopecks > 0 ? `+ план ${money(eco.costPlannedKopecks)}` : undefined}
-          />
-          <Figure
-            label="Валовая прибыль"
-            value={money(eco.grossProfitKopecks)}
-            tone={eco.grossProfitKopecks >= 0 ? "good" : "bad"}
-          />
-          <Figure
-            label="Маржа"
-            value={`${eco.marginPercent} %`}
-            tone={eco.marginPercent >= 0 ? "good" : "bad"}
-          />
-        </div>
-      )}
-
-      {eco && (
-        <div className="mb-5 grid gap-3 sm:grid-cols-3">
-          <Figure label="Получено от клиента" value={money(eco.receivedKopecks)} small />
-          <Figure
-            label="Осталось получить"
-            value={money(eco.receivableKopecks)}
-            tone={eco.receivableKopecks > 0 ? "warn" : undefined}
-            small
-          />
-          <Figure
-            label="Не оплачено поставщикам"
-            value={money(eco.costUnpaidKopecks)}
-            tone={eco.costUnpaidKopecks > 0 ? "warn" : undefined}
-            small
-          />
-        </div>
-      )}
+      {/* Сводка по деньгам живёт в «Экономике проекта» выше — здесь только сами затраты,
+          иначе одни и те же цифры считаются в двух местах и однажды разойдутся */}
 
       {showForm && (
         <div className="mb-4 grid gap-2 rounded-xl bg-surface p-3 sm:grid-cols-2">
@@ -350,32 +299,6 @@ export function OrderCosts({ orderId, onChanged }: { orderId: string; onChanged:
           Затрат пока нет — добавьте счета поставщиков, чтобы увидеть прибыль проекта
         </p>
       )}
-    </div>
-  );
-}
-
-function Figure({
-  label,
-  value,
-  hint,
-  tone,
-  small,
-}: {
-  label: string;
-  value: string;
-  hint?: string;
-  tone?: "good" | "bad" | "warn";
-  small?: boolean;
-}) {
-  const toneClass =
-    tone === "good" ? "text-accent" : tone === "bad" ? "text-ink" : tone === "warn" ? "text-ink" : "text-ink";
-  return (
-    <div className="rounded-xl bg-surface p-4">
-      <p className="label text-muted mb-1">{label}</p>
-      <p className={`${small ? "label-lg" : "label-lg"} ${toneClass}`} style={{ fontSize: small ? "1rem" : "1.25rem" }}>
-        {value}
-      </p>
-      {hint && <p className="label text-muted mt-1">{hint}</p>}
     </div>
   );
 }
