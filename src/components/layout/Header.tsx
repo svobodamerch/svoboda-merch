@@ -1,14 +1,17 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { mainNav, siteContact } from "@/lib/navigation";
 import { Container } from "@/components/ui/Container";
 import { useLeadModal } from "@/components/ui/LeadModalProvider";
 
 export function Header() {
+  const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
   const { open: openLeadModal } = useLeadModal();
+  const hidden = pathname?.startsWith("/admin") || pathname?.startsWith("/portal");
 
   useEffect(() => {
     document.body.style.overflow = menuOpen ? "hidden" : "";
@@ -16,6 +19,8 @@ export function Header() {
       document.body.style.overflow = "";
     };
   }, [menuOpen]);
+
+  if (hidden) return null;
 
   return (
     <>

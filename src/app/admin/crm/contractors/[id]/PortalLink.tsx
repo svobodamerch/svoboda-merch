@@ -7,15 +7,18 @@ export function PortalLink({ contractorId, slug: initialSlug }: { contractorId: 
   const [slug, setSlug] = useState(initialSlug);
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const link = slug ? `${typeof window !== "undefined" ? window.location.origin : ""}/portal/${slug}` : "";
 
   const create = async () => {
     setBusy(true);
+    setError(null);
     const r = await fetch(`/api/crm/contractors/${contractorId}/portal`, { method: "POST" });
     const d = await r.json();
     setBusy(false);
     if (d.slug) setSlug(d.slug);
+    else setError(d.error || "Не удалось создать ссылку");
   };
 
   const copy = () => {
@@ -47,6 +50,7 @@ export function PortalLink({ contractorId, slug: initialSlug }: { contractorId: 
           >
             {busy ? "…" : "Создать ссылку"}
           </button>
+          {error && <p className="label mt-2 text-red-600">{error}</p>}
         </>
       )}
     </div>

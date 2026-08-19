@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { siteContact, socialLinks } from "@/lib/navigation";
 import { Container } from "@/components/ui/Container";
 
@@ -12,6 +15,9 @@ const legal = [
 ];
 
 export function Footer() {
+  const pathname = usePathname();
+  if (pathname?.startsWith("/admin") || pathname?.startsWith("/portal")) return null;
+
   return (
     <footer className="print:hidden border-t border-line bg-surface">
       <Container className="py-12 md:py-16">
