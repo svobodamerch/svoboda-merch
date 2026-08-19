@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { ContractorBalance } from "@/lib/crm/reconciliation";
+import type { OwnerDashboard } from "@/lib/crm/dashboard";
+import { OwnerOverview } from "./OwnerOverview";
 
 type DebtEntry = ContractorBalance;
 type ActivityEntry = {
@@ -29,6 +31,7 @@ type TaskEntry = {
 };
 
 type Dashboard = {
+  owner: OwnerDashboard;
   monthRevenueKopecks: number;
   monthCostKopecks: number;
   activeDeals: ActiveDeals;
@@ -84,6 +87,8 @@ export default function CrmDashboardPage() {
 
   return (
     <div className="space-y-10">
+      <OwnerOverview data={data.owner} />
+
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="rounded-2xl bg-tint p-7">
           <p className="label text-accent mb-2">Оплачено нам в этом месяце</p>
@@ -172,16 +177,6 @@ export default function CrmDashboardPage() {
               ))}
             </div>
           )}
-        </div>
-      </div>
-
-      <div>
-        <p className="label text-accent mb-4">Финпланирование</p>
-        <div className="rounded-2xl border border-dashed border-line p-6">
-          <p className="label text-ink-soft">
-            План на месяц и прогноз на год появятся здесь после того, как выберем бизнес-модель для расчёта
-            (себестоимость + налоги по обеим ИП уже собираются — см. задачи в работе).
-          </p>
         </div>
       </div>
 

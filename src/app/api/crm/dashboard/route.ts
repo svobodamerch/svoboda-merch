@@ -7,9 +7,11 @@ import {
   getTodayAndOverdueTasks,
 } from "@/lib/crm/db";
 import { getDebtsByRole } from "@/lib/crm/reconciliation";
+import { getOwnerDashboard } from "@/lib/crm/dashboard";
 
 export async function GET() {
   return NextResponse.json({
+    owner: getOwnerDashboard(),
     monthRevenueKopecks: getMonthRevenueKopecks(),
     monthCostKopecks: getMonthCostKopecks(),
     activeDeals: getActiveDealsSummary(),
