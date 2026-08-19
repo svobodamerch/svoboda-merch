@@ -544,6 +544,18 @@ function initSchema(db: Database.Database) {
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
+    -- Операции, присланные ботом трекера в момент ввода. В суточной выгрузке
+    -- их ещё нет, а в очереди разбора они должны быть видны сразу.
+    CREATE TABLE IF NOT EXISTS mt_inbox (
+      id TEXT PRIMARY KEY,
+      occurred_at TEXT NOT NULL,
+      type TEXT NOT NULL,
+      amount REAL NOT NULL,
+      comment TEXT,
+      category TEXT,
+      received_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
     CREATE INDEX IF NOT EXISTS idx_expected_cash_status ON expected_cash_events(status);
     CREATE INDEX IF NOT EXISTS idx_expected_cash_date ON expected_cash_events(expected_at);
 
@@ -2288,8 +2300,9 @@ export type MtTransaction = {
   occurred_at: string;
   type: "income" | "expense";
   amount: number;
-  comment: string;
-  category: string;
+  // в трекере оба поля необязательные
+  comment: string | null;
+  category: string | null;
 };
 
 /**
@@ -2312,7 +2325,27 @@ function readMtTransactions(): MtTransaction[] {
 
 export type MtTransactionForReview = MtTransaction & { amount_kopecks: number };
 
-/** Операции Money Treker, ещё не разнесённые в CRM (нет записи в money_treker_links) */
+export function getMtInboxTransaction(id: string): MtTransaction | undefined {
+  const db = getCrmDb();
+  return db
+    .prepare(`SELECT id, occurred_at, type, amount, comment, category FROM mt_inbox WHERE id = ?`)
+    .get(id) as MtTransaction | undefined;
+}
+
+/** Операция, присланная ботом в момент ввода — до того, как попадёт в суточную выгрузку */
+export function saveMtInbox(tx: MtTransaction): void {
+  const db = getCrmDb();
+  db.prepare(
+    `INSERT OR REPLACE INTO mt_inbox (id, occurred_at, type, amount, comment, category)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+  ).run(tx.id, tx.occurred_at, tx.type, tx.amount, tx.comment ?? null, tx.category ?? null);
+}
+
+/**
+ * Операции Money Treker, ещё не разнесённые в CRM. Берём из двух источников —
+ * присланные ботом сразу и суточная выгрузка, — потому что между вводом
+ * и выгрузкой проходит до суток.
+ */
 export function getUnlinkedMtTransactions(): MtTransactionForReview[] {
   const db = getCrmDb();
   const linked = new Set(
@@ -2320,8 +2353,17 @@ export function getUnlinkedMtTransactions(): MtTransactionForReview[] {
       (r) => r.mt_transaction_id,
     ),
   );
-  return readMtTransactions()
+
+  const inbox = db
+    .prepare(`SELECT id, occurred_at, type, amount, comment, category FROM mt_inbox`)
+    .all() as MtTransaction[];
+
+  const byId = new Map<string, MtTransaction>();
+  for (const t of [...readMtTransactions(), ...inbox]) byId.set(t.id, t);
+
+  return [...byId.values()]
     .filter((t) => !linked.has(t.id))
+    .sort((a, b) => String(b.occurred_at).localeCompare(String(a.occurred_at)))
     .map((t) => ({ ...t, amount_kopecks: Math.round(t.amount * 100) }));
 }
 
@@ -2335,10 +2377,16 @@ export function linkMtTransaction(
   input: { contractorId?: number; orderId?: number; categoryId?: number; comment?: string },
   actor?: string,
 ): Payment | undefined {
-  const tx = readMtTransactions().find((t) => t.id === mtTransactionId);
+  const db = getCrmDb();
+  // Операция может быть ещё только в инбоксе — присланная ботом, но не попавшая
+  // в суточную выгрузку
+  const tx =
+    readMtTransactions().find((t) => t.id === mtTransactionId) ||
+    (db
+      .prepare(`SELECT id, occurred_at, type, amount, comment, category FROM mt_inbox WHERE id = ?`)
+      .get(mtTransactionId) as MtTransaction | undefined);
   if (!tx) return undefined;
 
-  const db = getCrmDb();
   const already = db
     .prepare(`SELECT id FROM money_treker_links WHERE mt_transaction_id = ?`)
     .get(mtTransactionId);

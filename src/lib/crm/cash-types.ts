@@ -8,6 +8,7 @@
 export type CashKind =
   | "client_payment"
   | "contractor_payment"
+  | "project_cost"
   | "overhead"
   | "tax"
   | "owner"
@@ -21,6 +22,7 @@ export type CashConfidence = "high" | "medium" | "low";
 export const cashKindLabel: Record<CashKind, string> = {
   client_payment: "Оплата клиента",
   contractor_payment: "Оплата подрядчику",
+  project_cost: "Затрата по проекту",
   overhead: "Накладные",
   tax: "Налог",
   owner: "Собственник",
