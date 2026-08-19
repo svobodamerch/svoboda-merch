@@ -47,6 +47,7 @@ const NAV: NavItem[] = [
     icon: IconMoney,
     children: [
       { href: "/admin/crm/payments", label: "Движение денег" },
+      { href: "/admin/crm/cash", label: "Прогноз кассы" },
       { href: "/admin/crm/documents", label: "Документы" },
       { href: "/admin/crm/legal-entities", label: "Юрлица" },
     ],

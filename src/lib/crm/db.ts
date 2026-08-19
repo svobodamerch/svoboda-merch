@@ -2,6 +2,8 @@ import Database from "better-sqlite3";
 import fs from "fs";
 import path from "path";
 import { randomBytes } from "crypto";
+// только тип — стирается при компиляции, поэтому цикла с cash.ts не возникает
+import type { CashKind } from "./cash-types";
 
 /**
  * CRM живёт в той же SQLite-базе, что и заявки (leads) — файл уже общий
@@ -23,8 +25,14 @@ export function getCrmDb(): Database.Database {
   ensureContractorRequisiteColumns(db);
   ensureOrderLegalEntityColumn(db);
   ensureOrderCostReviewColumns(db);
+  ensureCashEventColumns(db);
+  ensureBankAccountBalanceColumns(db);
   db.exec("CREATE INDEX IF NOT EXISTS idx_payments_category ON payments(category_id)");
   db.exec("CREATE INDEX IF NOT EXISTS idx_order_costs_review ON order_costs(needs_review)");
+  // Индексы по колонкам из ensure-миграций — только после них, иначе на уже
+  // существующей базе весь exec initSchema падает с «no such column»
+  db.exec("CREATE INDEX IF NOT EXISTS idx_payments_kind ON payments(kind)");
+  db.exec("CREATE INDEX IF NOT EXISTS idx_payments_document ON payments(document_id)");
   return db;
 }
 
@@ -121,6 +129,72 @@ function ensureOrderCostReviewColumns(db: Database.Database) {
   const cols = (db.prepare("PRAGMA table_info(order_costs)").all() as { name: string }[]).map((c) => c.name);
   if (!cols.includes("needs_review")) db.exec("ALTER TABLE order_costs ADD COLUMN needs_review INTEGER NOT NULL DEFAULT 0");
   if (!cols.includes("review_note")) db.exec("ALTER TABLE order_costs ADD COLUMN review_note TEXT");
+}
+
+/**
+ * Денежное событие: у каждого рубля должен быть бизнес-смысл и счёт, с которого
+ * он ушёл. Раньше платёж знал только контрагента и заказ, поэтому «−180 000 ₽»
+ * могло означать что угодно. См. docs/domain-model.md.
+ *
+ * Прогнозные события живут отдельно (expected_cash_events), а не строками
+ * в payments: иначе любой существующий SUM(payments) начнёт считать ожидаемые
+ * деньги как полученные.
+ */
+function ensureCashEventColumns(db: Database.Database) {
+  const cols = (db.prepare("PRAGMA table_info(payments)").all() as { name: string }[]).map((c) => c.name);
+
+  if (!cols.includes("kind")) {
+    db.exec("ALTER TABLE payments ADD COLUMN kind TEXT NOT NULL DEFAULT 'other'");
+    // Смысл уже заложен в данных: приход от клиента, расход подрядчику,
+    // расход без контрагента — накладные. Остальное честно остаётся «прочим».
+    db.exec(`
+      UPDATE payments SET kind = CASE
+        WHEN direction = 'in' THEN 'client_payment'
+        WHEN direction = 'out' AND contractor_id IS NOT NULL THEN 'contractor_payment'
+        WHEN direction = 'out' THEN 'overhead'
+        ELSE 'other'
+      END
+    `);
+  }
+  if (!cols.includes("legal_entity_id")) {
+    db.exec("ALTER TABLE payments ADD COLUMN legal_entity_id INTEGER REFERENCES legal_entities(id)");
+    // Юрлицо платежа выводим из сделки — там оно уже выбрано осознанно
+    db.exec(`
+      UPDATE payments SET legal_entity_id = (
+        SELECT o.legal_entity_id FROM orders o WHERE o.id = payments.order_id
+      ) WHERE order_id IS NOT NULL
+    `);
+  }
+  if (!cols.includes("bank_account_id")) {
+    db.exec("ALTER TABLE payments ADD COLUMN bank_account_id INTEGER REFERENCES bank_accounts(id)");
+  }
+  if (!cols.includes("document_id")) {
+    db.exec("ALTER TABLE payments ADD COLUMN document_id INTEGER REFERENCES documents(id)");
+    // Связь «счёт → оплата» до сих пор жила только в тексте комментария
+    db.exec(`
+      UPDATE payments SET document_id = (
+        SELECT d.id FROM documents d
+        WHERE d.status = 'paid' AND d.order_id = payments.order_id
+          AND d.total_kopecks = payments.amount_kopecks
+        LIMIT 1
+      ) WHERE direction = 'in' AND order_id IS NOT NULL
+    `);
+  }
+}
+
+/**
+ * Остаток на счёте. Пока заполняется вручную — до банковского импорта это
+ * единственный способ ответить «сколько денег будет через 30 дней»,
+ * а не только «сколько придёт и уйдёт».
+ */
+function ensureBankAccountBalanceColumns(db: Database.Database) {
+  const cols = (db.prepare("PRAGMA table_info(bank_accounts)").all() as { name: string }[]).map((c) => c.name);
+  if (!cols.includes("current_balance_kopecks")) {
+    db.exec("ALTER TABLE bank_accounts ADD COLUMN current_balance_kopecks INTEGER NOT NULL DEFAULT 0");
+  }
+  if (!cols.includes("balance_updated_at")) {
+    db.exec("ALTER TABLE bank_accounts ADD COLUMN balance_updated_at TEXT");
+  }
 }
 
 /** tasks появилась раньше contractor_id/order_id/reminded_at — добавляем на уже существующих базах */
@@ -419,6 +493,30 @@ function initSchema(db: Database.Database) {
     );
     CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
     CREATE INDEX IF NOT EXISTS idx_tasks_due ON tasks(due_at);
+
+    -- Ожидаемые деньги. Держим отдельно от payments, чтобы прогноз никогда
+    -- не попадал в суммы фактических поступлений и расходов.
+    CREATE TABLE IF NOT EXISTS expected_cash_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      direction TEXT NOT NULL,
+      kind TEXT NOT NULL DEFAULT 'other',
+      amount_kopecks INTEGER NOT NULL,
+      expected_at TEXT NOT NULL,
+      -- насколько верим в дату и сумму: high | medium | low
+      confidence TEXT NOT NULL DEFAULT 'medium',
+      status TEXT NOT NULL DEFAULT 'open',
+      contractor_id INTEGER REFERENCES contractors(id),
+      order_id INTEGER REFERENCES orders(id),
+      document_id INTEGER REFERENCES documents(id),
+      legal_entity_id INTEGER REFERENCES legal_entities(id),
+      comment TEXT,
+      realized_payment_id INTEGER REFERENCES payments(id),
+      created_by TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_expected_cash_status ON expected_cash_events(status);
+    CREATE INDEX IF NOT EXISTS idx_expected_cash_date ON expected_cash_events(expected_at);
 
     CREATE TABLE IF NOT EXISTS products (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1196,14 +1294,30 @@ export type PaymentInput = {
   comment?: string;
   source?: string;
   paid_at?: string;
+  /** Бизнес-смысл платежа. Без него деньги нельзя разнести — см. docs/domain-model.md */
+  kind?: CashKind;
+  legal_entity_id?: number;
+  bank_account_id?: number;
+  document_id?: number;
 };
+
+/**
+ * Смысл платежа, если его не указали явно. Приход — от клиента, расход
+ * подрядчику — если контрагент известен, остальной расход — накладные.
+ */
+function inferCashKind(input: PaymentInput): CashKind {
+  if (input.kind) return input.kind;
+  if (input.direction === "in") return "client_payment";
+  return input.contractor_id ? "contractor_payment" : "overhead";
+}
 
 export function createPayment(input: PaymentInput, actor?: string): Payment {
   const db = getCrmDb();
   const payment = db
     .prepare(
-      `INSERT INTO payments (contractor_id, category_id, order_id, direction, amount_kopecks, method, comment, source, paid_at, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')), ?)
+      `INSERT INTO payments (contractor_id, category_id, order_id, direction, amount_kopecks, method, comment, source, paid_at, created_by,
+                             kind, legal_entity_id, bank_account_id, document_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')), ?, ?, ?, ?, ?)
        RETURNING *`,
     )
     .get(
@@ -1217,6 +1331,10 @@ export function createPayment(input: PaymentInput, actor?: string): Payment {
       input.source || "manual",
       input.paid_at || null,
       actor || null,
+      inferCashKind(input),
+      input.legal_entity_id || null,
+      input.bank_account_id || null,
+      input.document_id || null,
     ) as Payment;
 
   const verb = input.direction === "in" ? "Получена оплата" : "Оплачено";
@@ -1482,8 +1600,19 @@ export type BankAccount = {
   account_number: string;
   is_default: number;
   is_active: number;
+  /** Остаток вводится вручную — до банковского импорта другого источника нет */
+  current_balance_kopecks: number;
+  balance_updated_at: string | null;
   created_at: string;
 };
+
+/** Остаток на счёте вместе с отметкой актуальности — без даты цифра бесполезна */
+export function updateBankAccountBalance(id: number, balanceKopecks: number): void {
+  const db = getCrmDb();
+  db.prepare(
+    `UPDATE bank_accounts SET current_balance_kopecks = ?, balance_updated_at = datetime('now') WHERE id = ?`,
+  ).run(Math.round(balanceKopecks), id);
+}
 
 export function getLegalEntities(): LegalEntity[] {
   const db = getCrmDb();
@@ -1821,8 +1950,9 @@ export function payDocument(id: number, opts: { method?: PaymentMethod; paid_at?
 
   const tx = db.transaction(() => {
     db.prepare(
-      `INSERT INTO payments (contractor_id, order_id, direction, amount_kopecks, method, comment, paid_at, source, created_by)
-       VALUES (?, ?, 'in', ?, ?, ?, COALESCE(?, datetime('now')), 'manual', ?)`,
+      `INSERT INTO payments (contractor_id, order_id, direction, amount_kopecks, method, comment, paid_at, source, created_by,
+                             kind, legal_entity_id, bank_account_id, document_id)
+       VALUES (?, ?, 'in', ?, ?, ?, COALESCE(?, datetime('now')), 'manual', ?, 'client_payment', ?, ?, ?)`,
     ).run(
       doc.contractor_id,
       doc.order_id,
@@ -1831,6 +1961,10 @@ export function payDocument(id: number, opts: { method?: PaymentMethod; paid_at?
       `Оплата счёта №${doc.number}`,
       opts.paid_at || null,
       actor || null,
+      doc.legal_entity_id,
+      doc.bank_account_id,
+      // связь «счёт → оплата», раньше она жила только в тексте комментария
+      doc.id,
     );
     db.prepare(
       `UPDATE documents SET status='paid', paid_at=COALESCE(?, datetime('now')), updated_at=datetime('now') WHERE id=?`,

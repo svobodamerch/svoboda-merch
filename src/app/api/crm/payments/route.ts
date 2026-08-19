@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createPayment, getPayments, type PaymentDirection, type PaymentMethod } from "@/lib/crm/db";
+import type { CashKind } from "@/lib/crm/cash";
 import { toKopecks } from "@/lib/crm/format";
 import { getCurrentActor } from "@/lib/crm/current-user";
 
@@ -31,6 +32,8 @@ export async function POST(request: NextRequest) {
       amount_kopecks: amount,
       method: (body.method as PaymentMethod) || "transfer",
       comment: String(body.comment || "").trim() || undefined,
+      // пусто — createPayment выведет смысл сам по направлению и контрагенту
+      kind: (body.kind as CashKind) || undefined,
       source: "manual",
     },
     actor,

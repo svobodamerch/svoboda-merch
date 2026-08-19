@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
+import { cashKindLabel, type CashKind } from "@/lib/crm/cash-types";
 
 type Contractor = { id: number; name: string };
 type Category = { id: number; name: string; kind: "fixed" | "variable" };
@@ -16,6 +17,8 @@ type Payment = {
   method: string;
   comment: string | null;
   paid_at: string;
+  kind: CashKind;
+  document_id: number | null;
 };
 type MonthRow = {
   month: string;
@@ -55,6 +58,7 @@ export default function PaymentsPage() {
     contractorId: "",
     categoryId: "",
     direction: "in",
+    kind: "" as CashKind | "",
     amount: "",
     method: "transfer",
     comment: "",
@@ -93,7 +97,7 @@ export default function PaymentsPage() {
         categoryId: target === "category" ? Number(form.categoryId) : undefined,
       }),
     });
-    setForm({ contractorId: "", categoryId: "", direction: "in", amount: "", method: "transfer", comment: "" });
+    setForm({ contractorId: "", categoryId: "", direction: "in", kind: "", amount: "", method: "transfer", comment: "" });
     setShowForm(false);
     setSaving(false);
     load();
@@ -231,6 +235,20 @@ export default function PaymentsPage() {
             <option value="in">Нам заплатили</option>
             <option value="out">Мы заплатили</option>
           </select>
+          <select
+            className={field}
+            value={form.kind}
+            onChange={(e) => setForm((f) => ({ ...f, kind: e.target.value as CashKind }))}
+          >
+            <option value="">Смысл — определить автоматически</option>
+            {(Object.keys(cashKindLabel) as CashKind[])
+              .filter((k) => k !== "other")
+              .map((k) => (
+                <option key={k} value={k}>
+                  {cashKindLabel[k]}
+                </option>
+              ))}
+          </select>
           <input
             className={field}
             placeholder="Сумма, ₽ *"
@@ -306,7 +324,9 @@ export default function PaymentsPage() {
                 {p.comment ? ` · ${p.comment}` : ""}
               </p>
               <p className="label text-muted">
-                {methodLabel[p.method] || p.method} · {new Date(p.paid_at).toLocaleString("ru-RU")}
+                {cashKindLabel[p.kind] || cashKindLabel.other} · {methodLabel[p.method] || p.method} ·{" "}
+                {new Date(p.paid_at).toLocaleString("ru-RU")}
+                {p.document_id && " · по счёту"}
               </p>
             </div>
             <span className={`label shrink-0 ${p.direction === "in" ? "text-accent" : "text-ink-soft"}`}>
