@@ -5,6 +5,7 @@ import {
   getMonthCostKopecks,
   getMonthRevenueKopecks,
   getRecentActivity,
+  getTodayAndOverdueTasks,
 } from "@/lib/crm/db";
 
 export async function GET() {
@@ -13,6 +14,7 @@ export async function GET() {
     monthCostKopecks: getMonthCostKopecks(),
     activeDeals: getActiveDealsSummary(),
     debts: getDebts(),
+    tasks: getTodayAndOverdueTasks(),
     activity: getRecentActivity(30),
   });
 }

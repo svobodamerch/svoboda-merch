@@ -19,14 +19,30 @@ type ActiveDeals = {
   amountKopecks: number;
   byStatus: { status: string; count: number; amountKopecks: number }[];
 };
+type TaskEntry = {
+  id: number;
+  title: string;
+  due_at: string | null;
+  contractor_name: string | null;
+  order_id: number | null;
+  order_title: string | null;
+};
 
 type Dashboard = {
   monthRevenueKopecks: number;
   monthCostKopecks: number;
   activeDeals: ActiveDeals;
   debts: { owedToUs: DebtEntry[]; weOwe: DebtEntry[] };
+  tasks: TaskEntry[];
   activity: ActivityEntry[];
 };
+
+function isOverdue(dueAt: string): boolean {
+  // due_at — либо чистая дата, либо UTC-момент; сравниваем по дню в московском времени
+  const todayMsk = new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const dueDay = dueAt.length <= 10 ? dueAt : new Date(new Date(dueAt.replace(" ", "T") + "Z").getTime() + 3 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  return dueDay < todayMsk;
+}
 
 const statusLabel: Record<string, string> = {
   new: "Новые",
@@ -41,16 +57,30 @@ function money(kopecks: number): string {
 
 export default function CrmDashboardPage() {
   const [data, setData] = useState<Dashboard | null>(null);
+  const [doneIds, setDoneIds] = useState<Set<number>>(new Set());
 
-  useEffect(() => {
+  const load = () => {
     fetch("/api/crm/dashboard")
       .then((r) => r.json())
       .then(setData);
-  }, []);
+  };
+
+  useEffect(load, []);
+
+  const completeTask = async (id: number) => {
+    setDoneIds((prev) => new Set(prev).add(id));
+    await fetch(`/api/crm/tasks/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "done" }),
+    });
+    load();
+  };
 
   if (!data) return <p className="label text-muted">Загрузка…</p>;
 
   const monthNet = data.monthRevenueKopecks - data.monthCostKopecks;
+  const tasks = data.tasks.filter((t) => !doneIds.has(t.id));
 
   return (
     <div className="space-y-10">
@@ -74,6 +104,47 @@ export default function CrmDashboardPage() {
             {money(monthNet)}
           </p>
         </div>
+      </div>
+
+      <div>
+        <div className="mb-4 flex items-baseline justify-between">
+          <p className="label text-accent">Задачи на сегодня{tasks.some((t) => t.due_at && isOverdue(t.due_at)) ? " и просроченные" : ""}</p>
+          <Link href="/admin/crm/tasks" className="label text-muted hover:text-accent">
+            Все задачи →
+          </Link>
+        </div>
+        {tasks.length === 0 ? (
+          <p className="label text-muted">На сегодня ничего не просрочено и не назначено</p>
+        ) : (
+          <ul className="divide-y divide-line border-t border-line">
+            {tasks.map((t) => {
+              const overdue = !!t.due_at && isOverdue(t.due_at);
+              return (
+                <li key={t.id} className="flex items-center gap-3 py-3">
+                  <button
+                    type="button"
+                    onClick={() => completeTask(t.id)}
+                    className="h-5 w-5 shrink-0 rounded-md border border-line hover:border-accent hover:bg-tint"
+                    title="Отметить выполненной"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="label text-ink truncate">{t.title}</p>
+                    <p className="label text-muted">
+                      {t.contractor_name}
+                      {t.order_id && t.order_title ? ` · ${t.order_title}` : ""}
+                    </p>
+                  </div>
+                  {t.due_at && (
+                    <span className={`label shrink-0 ${overdue ? "text-accent" : "text-muted"}`}>
+                      {overdue ? "Просрочено · " : ""}
+                      {new Date(t.due_at.replace(" ", "T") + (t.due_at.length > 10 ? "Z" : "")).toLocaleDateString("ru-RU")}
+                    </span>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </div>
 
       <div>

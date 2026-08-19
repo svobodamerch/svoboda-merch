@@ -2500,6 +2500,21 @@ export function getTasks(status?: TaskStatus): TaskWithLinks[] {
     .all() as TaskWithLinks[];
 }
 
+const MSK_OFFSET_MS = 3 * 60 * 60 * 1000;
+
+/** Открытые задачи на сегодня и просроченные — для виджета на дашборде. Сервер в UTC, бизнес в Москве */
+export function getTodayAndOverdueTasks(): TaskWithLinks[] {
+  const db = getCrmDb();
+  const todayMsk = new Date(Date.now() + MSK_OFFSET_MS).toISOString().slice(0, 10);
+  return db
+    .prepare(
+      `${TASK_SELECT}
+       WHERE t.status = 'open' AND t.due_at IS NOT NULL AND date(t.due_at) <= date(?)
+       ORDER BY t.due_at`,
+    )
+    .all(todayMsk) as TaskWithLinks[];
+}
+
 /** Задачи и заказы с распознаваемым сроком — источник данных календаря */
 export function getTasksWithDueDate(): Task[] {
   const db = getCrmDb();
