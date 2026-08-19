@@ -16,6 +16,8 @@ const MOBILE_TABS = [
   { href: "/admin/crm/contractors", label: "Контрагенты" },
   { href: "/admin/crm/products", label: "Товары" },
   { href: "/admin/crm/payments", label: "Деньги" },
+  { href: "/admin/crm/cash", label: "Прогноз кассы" },
+  { href: "/admin/crm/reconciliation", label: "Сверка" },
   { href: "/admin/crm/documents", label: "Документы" },
   { href: "/admin/crm/legal-entities", label: "Юрлица" },
   { href: "/admin/crm/proposals", label: "КП" },

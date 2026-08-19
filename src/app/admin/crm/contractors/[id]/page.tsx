@@ -5,6 +5,8 @@ import { useParams } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 import { ContractorContacts } from "./ContractorContacts";
 import { PortalLink } from "./PortalLink";
+import { ContractorBalanceBlock } from "./ContractorBalanceBlock";
+import type { ContractorBalance } from "@/lib/crm/reconciliation";
 
 type Contractor = {
   id: number;
@@ -51,7 +53,7 @@ type ActivityEntry = { id: number; message: string; actor: string | null; create
 
 type Detail = {
   contractor: Contractor;
-  balanceKopecks: number;
+  balance: ContractorBalance;
   orders: Order[];
   payments: Payment[];
   services: ContractorService[];
@@ -193,7 +195,7 @@ export default function ContractorDetailPage() {
   };
 
   if (!data) return <p className="label text-muted">Загрузка…</p>;
-  const { contractor, balanceKopecks, orders, payments, services, activity } = data;
+  const { contractor, balance, orders, payments, services, activity } = data;
 
   return (
     <div className="space-y-10">
@@ -202,13 +204,7 @@ export default function ContractorDetailPage() {
           ← Контрагенты
         </Link>
         <p className="label-lg text-ink mt-2">{contractor.name}</p>
-        <p className={`label mt-2 ${balanceKopecks > 0 ? "text-accent" : "text-ink-soft"}`}>
-          {balanceKopecks > 0
-            ? `Должен нам: ${money(balanceKopecks)}`
-            : balanceKopecks < 0
-              ? `Должны ему: ${money(-balanceKopecks)}`
-              : "Баланс закрыт"}
-        </p>
+        <ContractorBalanceBlock balance={balance} contractorId={String(id)} onChanged={load} />
       </div>
 
       <div>

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   getActivity,
-  getContractorBalance,
   getContractorById,
   getContractorContacts,
   getContractorServices,
@@ -9,6 +8,7 @@ import {
   getPaymentsByContractor,
   updateContractor,
 } from "@/lib/crm/db";
+import { getContractorBalanceDetailed } from "@/lib/crm/reconciliation";
 
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const id = Number((await params).id);
@@ -19,7 +19,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
 
   return NextResponse.json({
     contractor,
-    balanceKopecks: getContractorBalance(id),
+    balance: getContractorBalanceDetailed(id),
     orders: getOrdersByContractor(id),
     payments: getPaymentsByContractor(id),
     services: getContractorServices(id),

@@ -48,6 +48,7 @@ const NAV: NavItem[] = [
     children: [
       { href: "/admin/crm/payments", label: "Движение денег" },
       { href: "/admin/crm/cash", label: "Прогноз кассы" },
+      { href: "/admin/crm/reconciliation", label: "Сверка" },
       { href: "/admin/crm/documents", label: "Документы" },
       { href: "/admin/crm/legal-entities", label: "Юрлица" },
     ],

@@ -27,6 +27,7 @@ export function getCrmDb(): Database.Database {
   ensureOrderCostReviewColumns(db);
   ensureCashEventColumns(db);
   ensureBankAccountBalanceColumns(db);
+  ensureContractorOpeningBalanceColumns(db);
   db.exec("CREATE INDEX IF NOT EXISTS idx_payments_category ON payments(category_id)");
   db.exec("CREATE INDEX IF NOT EXISTS idx_order_costs_review ON order_costs(needs_review)");
   // Индексы по колонкам из ensure-миграций — только после них, иначе на уже
@@ -194,6 +195,34 @@ function ensureBankAccountBalanceColumns(db: Database.Database) {
   }
   if (!cols.includes("balance_updated_at")) {
     db.exec("ALTER TABLE bank_accounts ADD COLUMN balance_updated_at TEXT");
+  }
+}
+
+/**
+ * Начальный остаток по контрагенту. Бизнес работал до CRM, и требовать, чтобы
+ * каждый рубль объяснялся заведёнными здесь заказами, нельзя — иначе сверка
+ * показывает «переплату» там, где на самом деле долг с прошлого периода.
+ *
+ * Знак трактуется по роли: у подрядчика плюс — мы ему должны на старте,
+ * у клиента плюс — он должен нам.
+ */
+function ensureContractorOpeningBalanceColumns(db: Database.Database) {
+  const cols = (db.prepare("PRAGMA table_info(contractors)").all() as { name: string }[]).map((c) => c.name);
+  if (!cols.includes("opening_balance_kopecks")) {
+    db.exec("ALTER TABLE contractors ADD COLUMN opening_balance_kopecks INTEGER NOT NULL DEFAULT 0");
+  }
+  if (!cols.includes("opening_balance_at")) {
+    db.exec("ALTER TABLE contractors ADD COLUMN opening_balance_at TEXT");
+  }
+  if (!cols.includes("opening_balance_note")) {
+    db.exec("ALTER TABLE contractors ADD COLUMN opening_balance_note TEXT");
+  }
+  // Расхождение принято осознанно — больше не подсвечиваем как проблему
+  if (!cols.includes("reconciliation_accepted_at")) {
+    db.exec("ALTER TABLE contractors ADD COLUMN reconciliation_accepted_at TEXT");
+  }
+  if (!cols.includes("reconciliation_note")) {
+    db.exec("ALTER TABLE contractors ADD COLUMN reconciliation_note TEXT");
   }
 }
 
@@ -961,35 +990,6 @@ export function deleteContractorContact(id: number): void {
   db.prepare(`DELETE FROM contractor_contacts WHERE id = ?`).run(id);
 }
 
-/** Баланс: сколько контрагент нам должен (положительное) или мы ему (отрицательное), в копейках */
-export function getContractorBalance(id: number): number {
-  const db = getCrmDb();
-  const ordersTotal = (
-    db.prepare(`SELECT COALESCE(SUM(amount_kopecks), 0) as sum FROM orders WHERE contractor_id = ?`).get(id) as {
-      sum: number;
-    }
-  ).sum;
-  const paymentsIn = (
-    db
-      .prepare(
-        `SELECT COALESCE(SUM(amount_kopecks), 0) as sum FROM payments WHERE contractor_id = ? AND direction = 'in'`,
-      )
-      .get(id) as { sum: number }
-  ).sum;
-  const paymentsOut = (
-    db
-      .prepare(
-        `SELECT COALESCE(SUM(amount_kopecks), 0) as sum FROM payments WHERE contractor_id = ? AND direction = 'out'`,
-      )
-      .get(id) as { sum: number }
-  ).sum;
-  // Заказ увеличивает то, что нам должны; входящая оплата это гасит.
-  // Исходящая оплата — мы отдали деньги — тоже гасит долг (или уходит в плюс,
-  // если платили без встречного заказа: тогда это на нашей стороне, до
-  // выяснения — например, доплатить, завести заказ или это аванс).
-  return ordersTotal - paymentsIn + paymentsOut;
-}
-
 // ---------- Работы контрагента (справочник цен) ----------
 
 export type ContractorService = {
@@ -1480,24 +1480,8 @@ export function getMonthCostKopecks(): number {
   return row.sum;
 }
 
-export type DebtEntry = { contractor: Contractor; balance_kopecks: number };
-
-/** Кто должен нам (balance > 0) и кому должны мы (balance < 0) */
-export function getDebts(): { owedToUs: DebtEntry[]; weOwe: DebtEntry[] } {
-  const contractors = getContractors();
-  const owedToUs: DebtEntry[] = [];
-  const weOwe: DebtEntry[] = [];
-
-  for (const contractor of contractors) {
-    const balance = getContractorBalance(contractor.id);
-    if (balance > 0) owedToUs.push({ contractor, balance_kopecks: balance });
-    else if (balance < 0) weOwe.push({ contractor, balance_kopecks: balance });
-  }
-
-  owedToUs.sort((a, b) => b.balance_kopecks - a.balance_kopecks);
-  weOwe.sort((a, b) => a.balance_kopecks - b.balance_kopecks);
-  return { owedToUs, weOwe };
-}
+// Кто кому должен — в reconciliation.ts (getDebtsByRole): расчёт зависит от
+// роли контрагента, а не от знака одной общей формулы
 
 // ---------- Позиции заказа ----------
 

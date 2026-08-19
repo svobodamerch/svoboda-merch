@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import type { ContractorBalance } from "@/lib/crm/reconciliation";
 
-type Contractor = { id: number; name: string; company: string | null };
-type DebtEntry = { contractor: Contractor; balance_kopecks: number };
+type DebtEntry = ContractorBalance;
 type ActivityEntry = {
   id: number;
   entity_type: "order" | "contractor";
@@ -193,13 +193,13 @@ export default function CrmDashboardPage() {
           ) : (
             <ul className="space-y-2">
               {data.debts.owedToUs.map((d) => (
-                <li key={d.contractor.id}>
+                <li key={d.contractorId}>
                   <Link
-                    href={`/admin/crm/contractors/${d.contractor.id}`}
+                    href={`/admin/crm/contractors/${d.contractorId}`}
                     className="flex items-center justify-between rounded-xl bg-surface px-4 py-3 hover:bg-tint"
                   >
-                    <span className="label text-ink">{d.contractor.name}</span>
-                    <span className="label text-accent">{money(d.balance_kopecks)}</span>
+                    <span className="label text-ink">{d.name}</span>
+                    <span className="label text-accent">{money(d.outstandingKopecks)}</span>
                   </Link>
                 </li>
               ))}
@@ -214,13 +214,13 @@ export default function CrmDashboardPage() {
           ) : (
             <ul className="space-y-2">
               {data.debts.weOwe.map((d) => (
-                <li key={d.contractor.id}>
+                <li key={d.contractorId}>
                   <Link
-                    href={`/admin/crm/contractors/${d.contractor.id}`}
+                    href={`/admin/crm/contractors/${d.contractorId}`}
                     className="flex items-center justify-between rounded-xl bg-surface px-4 py-3 hover:bg-tint"
                   >
-                    <span className="label text-ink">{d.contractor.name}</span>
-                    <span className="label text-ink-soft">{money(-d.balance_kopecks)}</span>
+                    <span className="label text-ink">{d.name}</span>
+                    <span className="label text-ink-soft">{money(d.outstandingKopecks)}</span>
                   </Link>
                 </li>
               ))}
