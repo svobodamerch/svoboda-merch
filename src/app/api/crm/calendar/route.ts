@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { getOrders, getTasksWithDueDate } from "@/lib/crm/db";
+import { getCommitments } from "@/lib/crm/sales";
+import { getExpectedCashEvents } from "@/lib/crm/cash";
 
 const NSK_OFFSET_MS = 3 * 60 * 60 * 1000;
 
@@ -39,5 +41,25 @@ export async function GET() {
     date: toLocalDateKey(t.due_at as string),
   }));
 
-  return NextResponse.json({ orders, tasks });
+  // Календарь деловой, а не встреч: срок заказа, задача, обещание и ожидаемые
+  // деньги — всё, что случится в этот день и о чём нужно знать заранее
+  const commitments = getCommitments("open")
+    .filter((c) => c.due_date)
+    .map((c) => ({
+      id: c.id,
+      title: c.title,
+      description: c.side === "we" ? "Обещали мы" : "Обещали нам",
+      date: toLocalDateKey(c.due_date as string),
+    }));
+
+  const money = getExpectedCashEvents().map((e) => ({
+    id: e.id,
+    title: `${e.direction === "in" ? "+" : "−"}${(e.amountKopecks / 100).toLocaleString("ru-RU")} ₽${
+      e.comment ? ` · ${e.comment}` : ""
+    }`,
+    description: e.orderTitle,
+    date: toLocalDateKey(e.date),
+  }));
+
+  return NextResponse.json({ orders, tasks, commitments, money });
 }

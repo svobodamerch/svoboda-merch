@@ -10,11 +10,11 @@ import { Container } from "@/components/ui/Container";
 // Плоский список — используется только для мобильной раскладки (узкий экран, без сайдбара)
 const MOBILE_TABS = [
   { href: "/admin/crm", label: "Дашборд" },
+  { href: "/admin/crm/calendar", label: "Календарь" },
   { href: "/admin/crm/orders", label: "Сделки" },
   { href: "/admin/crm/tasks", label: "Задачи" },
   { href: "/admin/crm/commitments", label: "Обещания" },
   { href: "/admin/crm/pipeline", label: "Воронка" },
-  { href: "/admin/crm/calendar", label: "Календарь" },
   { href: "/admin/crm/contractors", label: "Контрагенты" },
   { href: "/admin/crm/products", label: "Товары" },
   { href: "/admin/crm/payments", label: "Деньги" },

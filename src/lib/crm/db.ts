@@ -2892,6 +2892,45 @@ export function completeTask(id: number): Task | undefined {
   return db.prepare(`SELECT * FROM tasks WHERE id = ?`).get(id) as Task | undefined;
 }
 
+export type TaskUpdate = {
+  title?: string;
+  description?: string | null;
+  due_at?: string | null;
+  remind_at?: string | null;
+  contractor_id?: number | null;
+  order_id?: number | null;
+};
+
+/**
+ * Правка задачи. Меняем только переданные поля: задачу часто трогают
+ * частично — перенести срок, дописать текст, привязать к сделке.
+ */
+export function updateTask(id: number, input: TaskUpdate): Task | undefined {
+  const db = getCrmDb();
+  const current = db.prepare(`SELECT * FROM tasks WHERE id = ?`).get(id) as Task | undefined;
+  if (!current) return undefined;
+
+  db.prepare(
+    `UPDATE tasks SET title = ?, description = ?, due_at = ?, remind_at = ?,
+                      contractor_id = ?, order_id = ?, updated_at = datetime('now')
+     WHERE id = ?`,
+  ).run(
+    input.title ?? current.title,
+    input.description !== undefined ? input.description : current.description,
+    input.due_at !== undefined ? input.due_at : current.due_at,
+    input.remind_at !== undefined ? input.remind_at : current.remind_at,
+    input.contractor_id !== undefined ? input.contractor_id : current.contractor_id,
+    input.order_id !== undefined ? input.order_id : current.order_id,
+    id,
+  );
+  return db.prepare(`SELECT * FROM tasks WHERE id = ?`).get(id) as Task | undefined;
+}
+
+export function deleteTask(id: number): void {
+  const db = getCrmDb();
+  db.prepare(`DELETE FROM tasks WHERE id = ?`).run(id);
+}
+
 export function reopenTask(id: number): Task | undefined {
   const db = getCrmDb();
   db.prepare(`UPDATE tasks SET status = 'open', done_at = NULL, updated_at = datetime('now') WHERE id = ?`).run(id);

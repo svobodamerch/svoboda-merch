@@ -1,28 +1,10 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
+import { TaskRow, type Task } from "./TaskRow";
 
-type Task = {
-  id: number;
-  title: string;
-  description: string | null;
-  status: "open" | "done";
-  due_at: string | null;
-  source: string;
-  created_by: string | null;
-  contractor_id: number | null;
-  order_id: number | null;
-  amount_kopecks: number | null;
-  contractor_name: string | null;
-  order_title: string | null;
-};
 type Contractor = { id: number; name: string };
 type Order = { id: number; title: string };
-
-function money(kopecks: number): string {
-  return `${(kopecks / 100).toLocaleString("ru-RU", { maximumFractionDigits: 2 })} ₽`;
-}
 
 const field =
   "w-full rounded-xl border border-line bg-bg px-4 py-3 text-[13px] text-ink outline-none focus:border-accent";
@@ -69,33 +51,9 @@ export default function TasksPage() {
     load();
   };
 
-  const toggle = async (task: Task) => {
-    await fetch(`/api/crm/tasks/${task.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: task.status === "open" ? "done" : "open" }),
-    });
-    load();
-  };
-
   if (!tasks) return <p className="label text-muted">Загрузка…</p>;
   const open = tasks.filter((t) => t.status === "open");
   const done = tasks.filter((t) => t.status === "done");
-
-  const links = (t: Task) => (
-    <>
-      {t.contractor_id && (
-        <Link href={`/admin/crm/contractors/${t.contractor_id}`} className="label text-accent hover:underline">
-          {t.contractor_name}
-        </Link>
-      )}
-      {t.order_id && (
-        <Link href={`/admin/crm/orders/${t.order_id}`} className="label text-accent hover:underline">
-          {t.order_title}
-        </Link>
-      )}
-    </>
-  );
 
   return (
     <div className="space-y-8">
@@ -161,30 +119,10 @@ export default function TasksPage() {
       </form>
 
       <div>
-        <p className="label text-accent mb-4">Открытые ({open.length})</p>
+        <p className="label text-accent mb-4">Открытые · {open.length}</p>
         <ul className="divide-y divide-line border-t border-line">
           {open.map((t) => (
-            <li key={t.id} className="flex items-start gap-3 py-3">
-              <button
-                type="button"
-                onClick={() => toggle(t)}
-                aria-label="Отметить выполненной"
-                className="mt-0.5 h-5 w-5 shrink-0 rounded-full border border-line hover:border-accent"
-              />
-              <div className="flex-1">
-                <p className="label text-ink">{t.title}</p>
-                {t.description && <p className="label text-muted mt-0.5">{t.description}</p>}
-                <div className="mt-0.5 flex flex-wrap gap-3">
-                  {t.source === "bot_voice" && <span className="label text-accent">из голосового</span>}
-                  {t.source === "bot_text" && <span className="label text-accent">из чата</span>}
-                  {links(t)}
-                </div>
-              </div>
-              <div className="flex shrink-0 flex-col items-end gap-0.5">
-                {t.due_at && <span className="label text-muted">{t.due_at}</span>}
-                {t.amount_kopecks != null && <span className="label text-accent">{money(t.amount_kopecks)}</span>}
-              </div>
-            </li>
+            <TaskRow key={t.id} task={t} contractors={contractors} orders={orders} onChanged={load} />
           ))}
         </ul>
         {open.length === 0 && <p className="label text-muted">Открытых задач нет</p>}
@@ -192,24 +130,15 @@ export default function TasksPage() {
 
       {done.length > 0 && (
         <div>
-          <p className="label text-accent mb-4">Выполнено ({done.length})</p>
+          <p className="label text-accent mb-4">Выполнено · {done.length}</p>
           <ul className="divide-y divide-line border-t border-line">
-            {done.map((t) => (
-              <li key={t.id} className="flex items-start gap-3 py-3">
-                <button
-                  type="button"
-                  onClick={() => toggle(t)}
-                  aria-label="Вернуть в открытые"
-                  className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent text-[10px] text-bg"
-                >
-                  ✓
-                </button>
-                <p className="label text-muted line-through">{t.title}</p>
-              </li>
+            {done.slice(0, 30).map((t) => (
+              <TaskRow key={t.id} task={t} contractors={contractors} orders={orders} onChanged={load} />
             ))}
           </ul>
         </div>
       )}
+
     </div>
   );
 }

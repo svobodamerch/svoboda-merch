@@ -12,6 +12,7 @@ import {
   IconChevron,
   IconCollapse,
   IconPromise,
+  IconCalendar,
 } from "./nav-icons";
 
 type Leaf = { href: string; label: string };
@@ -21,6 +22,7 @@ type NavItem =
 
 const NAV: NavItem[] = [
   { type: "link", href: "/admin/crm", label: "Дашборд", icon: IconDashboard },
+  { type: "link", href: "/admin/crm/calendar", label: "Календарь", icon: IconCalendar },
   {
     type: "group",
     label: "Сделки",
@@ -29,7 +31,6 @@ const NAV: NavItem[] = [
       { href: "/admin/crm/orders", label: "Канбан" },
       { href: "/admin/crm/pipeline", label: "Воронка" },
       { href: "/admin/crm/proposals", label: "КП" },
-      { href: "/admin/crm/calendar", label: "Календарь" },
       { href: "/admin/crm/knowledge", label: "База знаний" },
     ],
   },

@@ -92,3 +92,13 @@ export function IconPromise({ className }: IconProps) {
     </svg>
   );
 }
+
+export function IconCalendar({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 20 20" className={className} {...common}>
+      <rect x="2.5" y="4" width="15" height="13.5" rx="2" />
+      <path d="M2.5 8h15" />
+      <path d="M6.5 2.5v3M13.5 2.5v3" />
+    </svg>
+  );
+}
