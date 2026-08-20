@@ -102,3 +102,15 @@ export function IconCalendar({ className }: IconProps) {
     </svg>
   );
 }
+
+/** Заходящее солнце — подведение итогов дня */
+export function IconDay({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 20 20" className={className} {...common}>
+      <path d="M2.5 14.5h15" />
+      <path d="M6 11.5a4 4 0 0 1 8 0" />
+      <path d="M10 3v2M4.4 5.4l1.4 1.4M15.6 5.4l-1.4 1.4" />
+      <path d="M4.5 17.5h11" />
+    </svg>
+  );
+}

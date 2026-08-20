@@ -611,6 +611,29 @@ function initSchema(db: Database.Database) {
     CREATE INDEX IF NOT EXISTS idx_commitments_status ON commitments(status);
     CREATE INDEX IF NOT EXISTS idx_commitments_due ON commitments(due_date);
 
+    -- Итог дня: что сам записал о прошедшем дне. Факты дня не храним —
+    -- они считаются из данных, а здесь только то, чего в данных нет: мысли.
+    CREATE TABLE IF NOT EXISTS day_notes (
+      day TEXT PRIMARY KEY,
+      reflection TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    -- Вывод, сделанный по итогам дня. Смысл не в том, чтобы записать,
+    -- а в том, чтобы вернуться и превратить в задачу или правило.
+    CREATE TABLE IF NOT EXISTS day_conclusions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      day TEXT NOT NULL,
+      text TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'open',
+      task_id INTEGER REFERENCES tasks(id),
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      closed_at TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_day_conclusions_day ON day_conclusions(day);
+    CREATE INDEX IF NOT EXISTS idx_day_conclusions_status ON day_conclusions(status);
+
     CREATE INDEX IF NOT EXISTS idx_expected_cash_status ON expected_cash_events(status);
     CREATE INDEX IF NOT EXISTS idx_expected_cash_date ON expected_cash_events(expected_at);
 

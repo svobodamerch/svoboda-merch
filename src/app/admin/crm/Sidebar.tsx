@@ -13,6 +13,7 @@ import {
   IconCollapse,
   IconPromise,
   IconCalendar,
+  IconDay,
 } from "./nav-icons";
 
 type Leaf = { href: string; label: string };
@@ -23,6 +24,7 @@ type NavItem =
 const NAV: NavItem[] = [
   { type: "link", href: "/admin/crm", label: "Дашборд", icon: IconDashboard },
   { type: "link", href: "/admin/crm/calendar", label: "Календарь", icon: IconCalendar },
+  { type: "link", href: "/admin/crm/day", label: "Итог дня", icon: IconDay },
   {
     type: "group",
     label: "Сделки",

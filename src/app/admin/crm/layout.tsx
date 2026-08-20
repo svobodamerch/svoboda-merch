@@ -11,6 +11,7 @@ import { Container } from "@/components/ui/Container";
 const MOBILE_TABS = [
   { href: "/admin/crm", label: "Дашборд" },
   { href: "/admin/crm/calendar", label: "Календарь" },
+  { href: "/admin/crm/day", label: "Итог дня" },
   { href: "/admin/crm/orders", label: "Сделки" },
   { href: "/admin/crm/tasks", label: "Задачи" },
   { href: "/admin/crm/commitments", label: "Обещания" },
