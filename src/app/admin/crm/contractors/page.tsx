@@ -24,6 +24,8 @@ export default function ContractorsPage() {
   const [contractors, setContractors] = useState<Contractor[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ type: "client", name: "", company: "", phone: "", telegram: "" });
+  // Покупатели и поставщики — разные списки: с ними разная работа и разные деньги
+  const [tab, setTab] = useState<"client" | "supplier">("client");
   const [saving, setSaving] = useState(false);
 
   const load = () => {
@@ -48,6 +50,8 @@ export default function ContractorsPage() {
     setSaving(false);
     load();
   };
+
+  const visible = contractors.filter((c) => c.type === tab || c.type === "both");
 
   return (
     <div className="space-y-6">
@@ -108,8 +112,24 @@ export default function ContractorsPage() {
         </form>
       )}
 
+      <div className="flex gap-2">
+        {(["client", "supplier"] as const).map((t) => {
+          const count = contractors.filter((c) => c.type === t || c.type === "both").length;
+          return (
+            <button
+              key={t}
+              type="button"
+              onClick={() => setTab(t)}
+              className={`pill label ${tab === t ? "bg-ink text-bg" : "bg-surface text-ink-soft hover:text-ink"}`}
+            >
+              {t === "client" ? "Покупатели" : "Поставщики"} · {count}
+            </button>
+          );
+        })}
+      </div>
+
       <ul className="divide-y divide-line border-t border-line">
-        {contractors.map((c) => (
+        {visible.map((c) => (
           <li key={c.id}>
             <Link
               href={`/admin/crm/contractors/${c.id}`}
@@ -127,7 +147,11 @@ export default function ContractorsPage() {
           </li>
         ))}
       </ul>
-      {contractors.length === 0 && <p className="label text-muted">Пока никого нет</p>}
+      {visible.length === 0 && (
+        <p className="label text-muted">
+          {tab === "client" ? "Покупателей пока нет" : "Поставщиков пока нет"}
+        </p>
+      )}
     </div>
   );
 }

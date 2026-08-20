@@ -188,3 +188,96 @@ export function getProjectFinancials(orderId: number): ProjectFinancials {
     warnings,
   };
 }
+
+/**
+ * Значки на карточке сделки — то, что нужно понять с одного взгляда,
+ * не открывая проект. Считаются из той же экономики, отдельной арифметики нет.
+ */
+export type OrderBadge = {
+  code:
+    | "paid"
+    | "partial"
+    | "awaiting"
+    | "overpaid"
+    | "not_invoiced"
+    | "payable"
+    | "no_costs"
+    | "deadline"
+    | "overdue"
+    | "low_margin";
+  label: string;
+  tone: "good" | "warn" | "bad" | "muted";
+};
+
+function shortMoney(kopecks: number): string {
+  return `${Math.round(kopecks / 100).toLocaleString("ru-RU")} ₽`;
+}
+
+function daysUntil(dateIso: string): number {
+  const msk = new Date(Date.now() + 3 * 60 * 60 * 1000);
+  const today = Date.UTC(msk.getUTCFullYear(), msk.getUTCMonth(), msk.getUTCDate());
+  const target = Date.parse(`${dateIso}T00:00:00Z`);
+  if (Number.isNaN(target)) return NaN;
+  return Math.round((target - today) / 86400000);
+}
+
+export function getOrderBadges(orderId: number, deadline?: string | null): OrderBadge[] {
+  const fin = getProjectFinancials(orderId);
+  const badges: OrderBadge[] = [];
+  const { contractedKopecks: contracted, receivedKopecks: received, invoicedKopecks: invoiced } = fin.revenue;
+
+  // Деньги от клиента — первое, что хочется знать
+  if (contracted > 0) {
+    if (received === 0) {
+      badges.push({ code: "awaiting", label: "Не оплачено", tone: "warn" });
+    } else if (received >= contracted) {
+      badges.push(
+        received > contracted
+          ? { code: "overpaid", label: `Переплата ${shortMoney(received - contracted)}`, tone: "bad" }
+          : { code: "paid", label: "Оплачено", tone: "good" },
+      );
+    } else {
+      const percent = Math.round((received / contracted) * 100);
+      badges.push({ code: "partial", label: `Оплачено ${percent}%`, tone: "warn" });
+    }
+  }
+
+  if (contracted > 0 && invoiced === 0) {
+    badges.push({ code: "not_invoiced", label: "Счёт не выставлен", tone: "muted" });
+  }
+
+  if (fin.payableKopecks > 0) {
+    badges.push({
+      code: "payable",
+      label: `Подрядчикам ${shortMoney(fin.payableKopecks)}`,
+      tone: "warn",
+    });
+  }
+
+  if (contracted > 0 && fin.costs.forecastKopecks === 0) {
+    badges.push({ code: "no_costs", label: "Затраты не заведены", tone: "muted" });
+  } else if (fin.forecastMarginPercent !== null && fin.forecastMarginPercent < LOW_MARGIN_THRESHOLD) {
+    badges.push({
+      code: "low_margin",
+      label: `Маржа ${fin.forecastMarginPercent}%`,
+      tone: fin.forecastMarginPercent < 0 ? "bad" : "warn",
+    });
+  }
+
+  if (deadline) {
+    const left = daysUntil(deadline);
+    if (!Number.isNaN(left)) {
+      if (left < 0) {
+        badges.push({ code: "overdue", label: `Просрочено ${-left} дн`, tone: "bad" });
+      } else if (left <= 7) {
+        badges.push({
+          code: "deadline",
+          label: left === 0 ? "Срок сегодня" : `Срок через ${left} дн`,
+          tone: "warn",
+        });
+      }
+    }
+  }
+
+  return badges;
+}

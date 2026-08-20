@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState, type DragEvent, type FormEvent } from "react";
+import type { OrderBadge } from "@/lib/crm/finance";
 
 type Contractor = { id: number; name: string };
 type Order = {
@@ -11,6 +12,16 @@ type Order = {
   status: string;
   amount_kopecks: number;
   created_at: string;
+  badges: OrderBadge[];
+};
+
+// Значки должны читаться боковым зрением: цветом выделено только то,
+// что требует действия, остальное приглушено
+const badgeTone: Record<OrderBadge["tone"], string> = {
+  good: "bg-accent/10 text-accent",
+  warn: "bg-amber-50 text-amber-700",
+  bad: "bg-red-50 text-red-700",
+  muted: "bg-surface text-muted",
 };
 
 const statuses: { value: string; label: string }[] = [
@@ -179,6 +190,18 @@ export default function OrdersPage() {
                     </Link>
                     <p className="label text-muted mt-1">{contractorName(o.contractor_id)}</p>
                     <p className="label text-ink mt-1">{money(o.amount_kopecks)}</p>
+                    {o.badges?.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {o.badges.map((b) => (
+                          <span
+                            key={b.code}
+                            className={`rounded-md px-1.5 py-0.5 text-[10px] leading-tight ${badgeTone[b.tone]}`}
+                          >
+                            {b.label}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

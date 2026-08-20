@@ -2,10 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { createOrder, getOrders, type OrderStatus } from "@/lib/crm/db";
 import { toKopecks } from "@/lib/crm/format";
 import { getCurrentActor } from "@/lib/crm/current-user";
+import { getOrderBadges } from "@/lib/crm/finance";
 
 export async function GET(request: NextRequest) {
   const status = request.nextUrl.searchParams.get("status") as OrderStatus | null;
-  return NextResponse.json({ orders: getOrders(status || undefined) });
+  const orders = getOrders(status || undefined);
+  // Значки считаем здесь: карточка должна быть понятна без открытия проекта
+  return NextResponse.json({
+    orders: orders.map((o) => ({ ...o, badges: getOrderBadges(o.id, o.deadline) })),
+  });
 }
 
 export async function POST(request: NextRequest) {
