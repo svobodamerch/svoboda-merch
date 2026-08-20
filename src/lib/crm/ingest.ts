@@ -20,6 +20,7 @@ export type IncomingMtTransaction = {
 };
 
 export type OrderOption = { id: number; title: string };
+export type CategoryOption = { id: number; name: string; kind: string };
 
 export type IngestSuggestion = {
   /** Уже разнесена — второй раз не предлагаем */
@@ -28,6 +29,8 @@ export type IngestSuggestion = {
   suggestedContractorId: number | null;
   /** Почему предложили именно её — чтобы подтверждение было осознанным */
   reason: string | null;
+  /** Статья накладных, если расход явно не проектный: подписки, налоги, комиссия */
+  suggestedCategory: CategoryOption | null;
   activeOrders: OrderOption[];
   possibleDuplicate: DuplicateHint | null;
 };
@@ -39,8 +42,75 @@ export type DuplicateHint = {
   comment: string | null;
 };
 
+/**
+ * Категории трекера, которые почти никогда не относятся к конкретному проекту.
+ * Ключ — как названо в трекере, значение — статья накладных в CRM.
+ */
+const OVERHEAD_BY_MT_CATEGORY: Record<string, string> = {
+  "подписки и сервисы": "Подписки и сервисы",
+  сервисы: "Подписки и сервисы",
+  налоги: "Налоги",
+  транспорт: "Транспорт",
+  "оплата услуг": "Прочие услуги",
+};
+
+/** Слова в комментарии, по которым расход опознаётся как банковский или офисный */
+const OVERHEAD_BY_KEYWORD: { words: string[]; category: string }[] = [
+  { words: ["комисси", "обслуживан", "поручен"], category: "Банковская комиссия" },
+  { words: ["налог", "усн", "патент", "взнос"], category: "Налоги" },
+  { words: ["подписк", "тариф", "премиум"], category: "Подписки и сервисы" },
+  { words: ["юрист", "бухгалтер"], category: "Бухгалтерия и юрист" },
+  { words: ["аренд"], category: "Аренда" },
+  { words: ["реклам", "продвижен", "таргет"], category: "Реклама и продвижение" },
+  { words: ["канцеляр", "хозтовар", "office", "офис"], category: "Офис и хозтовары" },
+];
+
+function findOverheadCategory(
+  db: ReturnType<typeof getCrmDb>,
+  tx: IncomingMtTransaction,
+): CategoryOption | null {
+  if (tx.type !== "expense") return null;
+
+  const byName = (name: string) =>
+    db.prepare(`SELECT id, name, kind FROM expense_categories WHERE name = ?`).get(name) as
+      | CategoryOption
+      | undefined;
+
+  // Сначала слово из комментария: «комиссия банка» точнее, чем общая
+  // категория трекера «Оплата услуг»
+  const haystack = `${tx.comment || ""} ${tx.category || ""}`.toLowerCase();
+  for (const rule of OVERHEAD_BY_KEYWORD) {
+    if (rule.words.some((w) => haystack.includes(w))) {
+      const found = byName(rule.category);
+      if (found) return found;
+    }
+  }
+
+  const mtCategory = (tx.category || "").trim().toLowerCase();
+  const mapped = OVERHEAD_BY_MT_CATEGORY[mtCategory];
+  if (mapped) {
+    const found = byName(mapped);
+    if (found) return found;
+  }
+  return null;
+}
+
 /** Слова короче этого ни о чём не говорят: «и», «за», «на» */
 const MIN_KEYWORD = 4;
+
+/**
+ * Русские слова в комментариях склоняются: «к кустиковой» и «Кустикова» —
+ * одно и то же. Сравниваем по основе, отбрасывая окончание.
+ */
+const STEM_LENGTH = 5;
+
+function stem(word: string): string {
+  return word.slice(0, STEM_LENGTH);
+}
+
+function hasStem(set: Set<string>, word: string): boolean {
+  return set.has(stem(word));
+}
 
 function words(text: string): string[] {
   return text
@@ -70,7 +140,8 @@ export function suggestForTransaction(tx: IncomingMtTransaction): IngestSuggesti
     .all() as OrderOption[];
 
   const haystack = `${tx.comment || ""} ${tx.category || ""}`.toLowerCase();
-  const txWords = new Set(words(haystack));
+  // храним основы, чтобы падежи не мешали совпадению
+  const txWords = new Set(words(haystack).map(stem));
 
   let suggestedOrder: OrderOption | null = null;
   let suggestedContractorId: number | null = null;
@@ -83,7 +154,7 @@ export function suggestForTransaction(tx: IncomingMtTransaction): IngestSuggesti
 
   for (const c of contractors) {
     const nameWords = words(c.name);
-    if (nameWords.length > 0 && nameWords.some((w) => txWords.has(w))) {
+    if (nameWords.length > 0 && nameWords.some((w) => hasStem(txWords, w))) {
       suggestedContractorId = c.id;
       reason = `в комментарии упомянут «${c.name}»`;
       break;
@@ -93,7 +164,7 @@ export function suggestForTransaction(tx: IncomingMtTransaction): IngestSuggesti
   // 2. Узнаваемое слово из названия сделки
   for (const o of activeOrders) {
     const titleWords = words(o.title);
-    const hit = titleWords.find((w) => txWords.has(w));
+    const hit = titleWords.find((w) => hasStem(txWords, w));
     if (hit) {
       suggestedOrder = o;
       reason = reason ? `${reason}, совпало «${hit}»` : `в комментарии совпало «${hit}»`;
@@ -117,12 +188,42 @@ export function suggestForTransaction(tx: IncomingMtTransaction): IngestSuggesti
     }
   }
 
+  // Контрагент опознан, но сделок у него несколько — выбрать за пользователя
+  // нельзя, зато можно поднять его сделки наверх списка
+  let orderedOrders = activeOrders;
+  if (!suggestedOrder && suggestedContractorId) {
+    const own = new Set(
+      (
+        db
+          .prepare(
+            `SELECT DISTINCT o.id FROM orders o
+             LEFT JOIN order_costs oc ON oc.order_id = o.id
+             WHERE o.status NOT IN ('done', 'cancelled')
+               AND (o.contractor_id = ? OR oc.contractor_id = ?)`,
+          )
+          .all(suggestedContractorId, suggestedContractorId) as { id: number }[]
+      ).map((r) => r.id),
+    );
+    if (own.size > 0) {
+      orderedOrders = [...activeOrders].sort(
+        (a, b) => Number(own.has(b.id)) - Number(own.has(a.id)),
+      );
+    }
+  }
+
+  const suggestedCategory = findOverheadCategory(db, tx);
+  // Расход, явно относящийся к офису, к сделке привязывать не предлагаем
+  if (suggestedCategory && !suggestedOrder) {
+    reason = reason || `похоже на «${suggestedCategory.name}»`;
+  }
+
   return {
     alreadyLinked,
     suggestedOrder,
     suggestedContractorId,
     reason,
-    activeOrders,
+    suggestedCategory,
+    activeOrders: orderedOrders,
     possibleDuplicate: findDuplicateForAmount(
       Math.round(tx.amount * 100),
       tx.type === "income" ? "in" : "out",

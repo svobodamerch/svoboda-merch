@@ -23,6 +23,7 @@ const CATEGORIES = [
   ["Налоги", "variable"],
   ["Банковская комиссия", "variable"],
   ["Транспорт", "variable"],
+  ["Офис и хозтовары", "variable"],
   ["Реклама и продвижение", "variable"],
   ["Прочие услуги", "variable"],
 ];
