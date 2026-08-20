@@ -36,7 +36,7 @@ function Figure({ label, value, hint }: { label: string; value: string; hint?: s
 }
 
 export function OwnerOverview({ data }: { data: OwnerDashboard }) {
-  const { money: m, profit, projects, alerts } = data;
+  const { money: m, profit, projects, sales, alerts } = data;
 
   return (
     <div className="space-y-8">
@@ -105,6 +105,26 @@ export function OwnerOverview({ data }: { data: OwnerDashboard }) {
           />
         </div>
       </div>
+
+      {sales.count > 0 && (
+        <div>
+          <div className="mb-4 flex items-baseline justify-between">
+            <p className="label text-accent">Воронка · {sales.count}</p>
+            <Link href="/admin/crm/pipeline" className="label text-muted hover:text-accent">
+              Все сделки →
+            </Link>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <Figure label="Сумма сделок" value={money(sales.totalKopecks)} />
+            <Figure
+              label="С поправкой на вероятность"
+              value={money(sales.weightedKopecks)}
+              hint="в прибыль проектов не входит"
+            />
+            <Figure label="Закрываются в этом месяце" value={money(sales.closingThisMonthKopecks)} />
+          </div>
+        </div>
+      )}
 
       <div>
         <div className="mb-4 flex items-baseline justify-between">

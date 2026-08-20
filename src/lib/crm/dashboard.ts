@@ -2,6 +2,7 @@ import { getCrmDb, getTodayAndOverdueTasks } from "./db";
 import { getCashForecast } from "./cash";
 import { getProjectFinancials } from "./finance";
 import { getAllContractorBalances } from "./reconciliation";
+import { getDueCommitments, getPipeline } from "./sales";
 
 /**
  * Дашборд собственника: отвечает не «сколько у нас контактов», а
@@ -52,6 +53,14 @@ export type OwnerDashboard = {
     yellow: number;
     red: number;
     list: ProjectHealth[];
+  };
+  /** Воронка держится отдельно от прибыли: она основана на вероятности,
+      а не на договорённостях, и складывать их нельзя */
+  sales: {
+    totalKopecks: number;
+    weightedKopecks: number;
+    closingThisMonthKopecks: number;
+    count: number;
   };
   alerts: Alert[];
 };
@@ -129,6 +138,7 @@ export function getOwnerDashboard(): OwnerDashboard {
     .filter((b) => b.role === "supplier" && b.outstandingKopecks > 0)
     .reduce((s, b) => s + b.outstandingKopecks, 0);
 
+  const pipeline = getPipeline();
   const forecast = getCashForecast([30]);
   const h = forecast.horizons[0];
 
@@ -165,6 +175,15 @@ export function getOwnerDashboard(): OwnerDashboard {
       severity: "critical",
       title: `${p.title}: ${p.reason}`,
       href: `/admin/crm/orders/${p.orderId}`,
+    });
+  }
+
+  const dueCommitments = getDueCommitments();
+  if (dueCommitments.length > 0) {
+    alerts.push({
+      severity: "warning",
+      title: `Обещаний к сроку: ${dueCommitments.length} — ${dueCommitments[0].title}`,
+      href: "/admin/crm/commitments",
     });
   }
 
@@ -205,6 +224,12 @@ export function getOwnerDashboard(): OwnerDashboard {
       yellow: list.filter((p) => p.health === "yellow").length,
       red: list.filter((p) => p.health === "red").length,
       list,
+    },
+    sales: {
+      totalKopecks: pipeline.totalKopecks,
+      weightedKopecks: pipeline.weightedKopecks,
+      closingThisMonthKopecks: pipeline.closingThisMonthKopecks,
+      count: pipeline.deals.length,
     },
     alerts,
   };

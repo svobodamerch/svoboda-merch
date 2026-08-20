@@ -11,6 +11,7 @@ import {
   IconMoney,
   IconChevron,
   IconCollapse,
+  IconPromise,
 } from "./nav-icons";
 
 type Leaf = { href: string; label: string };
@@ -26,12 +27,14 @@ const NAV: NavItem[] = [
     icon: IconDeals,
     children: [
       { href: "/admin/crm/orders", label: "Канбан" },
+      { href: "/admin/crm/pipeline", label: "Воронка" },
       { href: "/admin/crm/proposals", label: "КП" },
       { href: "/admin/crm/calendar", label: "Календарь" },
       { href: "/admin/crm/knowledge", label: "База знаний" },
     ],
   },
   { type: "link", href: "/admin/crm/tasks", label: "Задачи", icon: IconTasks },
+  { type: "link", href: "/admin/crm/commitments", label: "Обещания", icon: IconPromise },
   {
     type: "group",
     label: "Контрагенты",

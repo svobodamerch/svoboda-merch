@@ -566,6 +566,51 @@ function initSchema(db: Database.Database) {
       PRIMARY KEY (payment_a, payment_b)
     );
 
+    -- Сделка — обещание будущей выручки, проект (orders) — единица исполнения.
+    -- Держим отдельно: у заказа статусы производства, и стадии продажи
+    -- «клиент думает» там жить не могут, а попав туда — искажают прогноз прибыли.
+    CREATE TABLE IF NOT EXISTS deals (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      contractor_id INTEGER REFERENCES contractors(id),
+      title TEXT NOT NULL,
+      stage TEXT NOT NULL DEFAULT 'new',
+      amount_kopecks INTEGER NOT NULL DEFAULT 0,
+      probability INTEGER NOT NULL DEFAULT 10,
+      expected_close_date TEXT,
+      next_action TEXT,
+      lost_reason TEXT,
+      -- проект, созданный при выигрыше
+      order_id INTEGER REFERENCES orders(id),
+      notes TEXT,
+      created_by TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      closed_at TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_deals_stage ON deals(stage);
+    CREATE INDEX IF NOT EXISTS idx_deals_contractor ON deals(contractor_id);
+
+    -- Кто кому что обещал. Не задача и не заметка: у обещания есть сторона,
+    -- которая его дала, и это главное, что о нём нужно помнить.
+    CREATE TABLE IF NOT EXISTS commitments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT NOT NULL,
+      -- we — обещали мы, they — обещали нам
+      side TEXT NOT NULL DEFAULT 'we',
+      status TEXT NOT NULL DEFAULT 'open',
+      due_date TEXT,
+      contractor_id INTEGER REFERENCES contractors(id),
+      contact_id INTEGER REFERENCES contractor_contacts(id),
+      order_id INTEGER REFERENCES orders(id),
+      deal_id INTEGER REFERENCES deals(id),
+      note TEXT,
+      created_by TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      done_at TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_commitments_status ON commitments(status);
+    CREATE INDEX IF NOT EXISTS idx_commitments_due ON commitments(due_date);
+
     CREATE INDEX IF NOT EXISTS idx_expected_cash_status ON expected_cash_events(status);
     CREATE INDEX IF NOT EXISTS idx_expected_cash_date ON expected_cash_events(expected_at);
 

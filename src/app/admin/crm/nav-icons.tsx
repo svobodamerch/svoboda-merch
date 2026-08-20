@@ -79,3 +79,16 @@ export function IconCollapse({ className }: IconProps) {
     </svg>
   );
 }
+
+/** Рукопожатие — обещание, а не задача */
+export function IconPromise({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 20 20" className={className} {...common}>
+      <path d="M3 8.5 6.5 5h3l2 2" />
+      <path d="M17 8.5 13.5 5h-2" />
+      <path d="M8.5 9.5 10 11l1.5-1.5 2 2 1.5-1.5" />
+      <path d="M3 8.5v3l3.5 3.5 1.5-1.5" />
+      <path d="M17 8.5v3l-2.5 2.5" />
+    </svg>
+  );
+}
