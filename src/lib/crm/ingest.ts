@@ -201,30 +201,50 @@ export function ingestMtTransaction(
   return { payment, alreadyLinked: false as const };
 }
 
+export type DuplicateSide = {
+  id: number;
+  source: string;
+  comment: string | null;
+  paidAt: string;
+  orderTitle: string | null;
+};
+
 export type DuplicatePair = {
-  a: { id: number; source: string; comment: string | null; paidAt: string };
-  b: { id: number; source: string; comment: string | null; paidAt: string };
+  a: DuplicateSide;
+  b: DuplicateSide;
   amountKopecks: number;
   direction: string;
+  /** Платежи привязаны к разным сделкам — чаще всего это просто разные траты */
+  differentOrders: boolean;
 };
 
 /**
  * Дубли среди уже записанных платежей: одна трата, внесённая и руками в CRM,
  * и через трекер. Совпадение суммы, направления и даты в пределах трёх дней.
+ *
+ * Пары, про которые уже решили «это разные траты», не показываем повторно.
  */
 export function findDuplicatePayments(): DuplicatePair[] {
   const db = getCrmDb();
   return db
     .prepare(
       `SELECT p1.id AS aId, p1.source AS aSource, p1.comment AS aComment, p1.paid_at AS aPaidAt,
+              o1.title AS aOrder, p1.order_id AS aOrderId,
               p2.id AS bId, p2.source AS bSource, p2.comment AS bComment, p2.paid_at AS bPaidAt,
+              o2.title AS bOrder, p2.order_id AS bOrderId,
               p1.amount_kopecks AS amountKopecks, p1.direction AS direction
        FROM payments p1
+       LEFT JOIN orders o1 ON o1.id = p1.order_id
        JOIN payments p2
          ON p2.amount_kopecks = p1.amount_kopecks
         AND p2.direction = p1.direction
         AND p2.id > p1.id
         AND ABS(julianday(p2.paid_at) - julianday(p1.paid_at)) <= 3
+       LEFT JOIN orders o2 ON o2.id = p2.order_id
+       WHERE NOT EXISTS (
+         SELECT 1 FROM duplicate_dismissals d
+         WHERE d.payment_a = p1.id AND d.payment_b = p2.id
+       )
        ORDER BY p1.paid_at DESC`,
     )
     .all()
@@ -236,15 +256,42 @@ export function findDuplicatePayments(): DuplicatePair[] {
           source: row.aSource as string,
           comment: row.aComment as string | null,
           paidAt: row.aPaidAt as string,
+          orderTitle: (row.aOrder as string | null) ?? null,
         },
         b: {
           id: row.bId as number,
           source: row.bSource as string,
           comment: row.bComment as string | null,
           paidAt: row.bPaidAt as string,
+          orderTitle: (row.bOrder as string | null) ?? null,
         },
         amountKopecks: row.amountKopecks as number,
         direction: row.direction as string,
+        differentOrders:
+          row.aOrderId != null && row.bOrderId != null && row.aOrderId !== row.bOrderId,
       };
     });
+}
+
+/** «Это разные траты» — запоминаем решение, чтобы пара не всплывала снова */
+export function dismissDuplicate(paymentA: number, paymentB: number, actor?: string): void {
+  const db = getCrmDb();
+  const [a, b] = paymentA < paymentB ? [paymentA, paymentB] : [paymentB, paymentA];
+  db.prepare(
+    `INSERT OR IGNORE INTO duplicate_dismissals (payment_a, payment_b, created_by) VALUES (?, ?, ?)`,
+  ).run(a, b, actor || null);
+}
+
+/**
+ * Удалить платёж-дубль. Снимаем связь с операцией трекера, иначе она
+ * останется помеченной как разнесённая и больше не попадёт в разбор.
+ */
+export function deleteDuplicatePayment(paymentId: number): void {
+  const db = getCrmDb();
+  const tx = db.transaction(() => {
+    db.prepare(`DELETE FROM money_treker_links WHERE payment_id = ?`).run(paymentId);
+    db.prepare(`UPDATE order_costs SET payment_id = NULL WHERE payment_id = ?`).run(paymentId);
+    db.prepare(`DELETE FROM payments WHERE id = ?`).run(paymentId);
+  });
+  tx();
 }

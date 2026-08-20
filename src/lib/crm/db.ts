@@ -556,6 +556,16 @@ function initSchema(db: Database.Database) {
       received_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
+    -- Пары платежей, про которые уже решили, что это не дубль.
+    -- Храним только решение — само совпадение вычисляется каждый раз заново.
+    CREATE TABLE IF NOT EXISTS duplicate_dismissals (
+      payment_a INTEGER NOT NULL,
+      payment_b INTEGER NOT NULL,
+      created_by TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (payment_a, payment_b)
+    );
+
     CREATE INDEX IF NOT EXISTS idx_expected_cash_status ON expected_cash_events(status);
     CREATE INDEX IF NOT EXISTS idx_expected_cash_date ON expected_cash_events(expected_at);
 

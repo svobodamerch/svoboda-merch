@@ -36,6 +36,22 @@ type MtTransaction = {
   category: string;
 };
 
+type DuplicateSide = {
+  id: number;
+  source: string;
+  comment: string | null;
+  paidAt: string;
+  orderTitle: string | null;
+};
+
+type DuplicatePair = {
+  a: DuplicateSide;
+  b: DuplicateSide;
+  amountKopecks: number;
+  direction: string;
+  differentOrders: boolean;
+};
+
 function money(kopecks: number): string {
   return `${(kopecks / 100).toLocaleString("ru-RU", { maximumFractionDigits: 2 })} ₽`;
 }
@@ -47,6 +63,7 @@ export default function ReviewQueuePage() {
   const [costs, setCosts] = useState<ReviewCost[]>([]);
   const [payments, setPayments] = useState<OrphanPayment[]>([]);
   const [mtTransactions, setMtTransactions] = useState<MtTransaction[]>([]);
+  const [duplicates, setDuplicates] = useState<DuplicatePair[]>([]);
   const [contractors, setContractors] = useState<Contractor[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [drafts, setDrafts] = useState<Record<number, string>>({});
@@ -63,6 +80,7 @@ export default function ReviewQueuePage() {
         setCosts(d.costs);
         setPayments(d.orphanPayments || []);
         setMtTransactions(d.moneyTreker || []);
+        setDuplicates(d.duplicates || []);
         setDrafts(
           Object.fromEntries(d.costs.map((c: ReviewCost) => [c.id, c.contractor_id ? String(c.contractor_id) : ""])),
         );
@@ -126,7 +144,17 @@ export default function ReviewQueuePage() {
     load();
   };
 
-  const nothingToDo = costs.length === 0 && payments.length === 0 && mtTransactions.length === 0;
+  const nothingToDo =
+    costs.length === 0 && payments.length === 0 && mtTransactions.length === 0 && duplicates.length === 0;
+
+  const resolveDuplicate = async (body: Record<string, unknown>) => {
+    await fetch("/api/crm/review/duplicates", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    load();
+  };
 
   return (
     <div className="space-y-10">
@@ -136,6 +164,59 @@ export default function ReviewQueuePage() {
           Всё, что внесено приблизительно или ещё не разнесено по сделкам. Дошли руки — поправьте и уберите отсюда.
         </p>
       </div>
+
+      {duplicates.length > 0 && (
+        <div>
+          <p className="label text-accent mb-1">Возможные дубли · {duplicates.length}</p>
+          <p className="label text-muted mb-4">
+            Одна сумма в одну сторону с разницей до трёх дней. Обычно это одна трата, внесённая
+            и руками, и через трекер — пока дубль висит, прибыль и касса считаются неверно.
+          </p>
+          <ul className="divide-y divide-line border-t border-line">
+            {duplicates.map((d) => (
+              <li key={`${d.a.id}-${d.b.id}`} className="py-4">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <span className="label text-ink">
+                    {d.direction === "in" ? "+" : "−"}
+                    {money(d.amountKopecks)}
+                  </span>
+                  {d.differentOrders && (
+                    <span className="label text-muted">разные сделки — скорее всего не дубль</span>
+                  )}
+                </div>
+                <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                  {[d.a, d.b].map((p) => (
+                    <div key={p.id} className="rounded-xl bg-surface p-3">
+                      <p className="label text-ink-soft">{p.comment || "без комментария"}</p>
+                      <p className="label text-muted mt-1">
+                        {p.orderTitle ? `${p.orderTitle} · ` : ""}
+                        {p.source === "money_treker" ? "из трекера" : "вручную"} ·{" "}
+                        {new Date(p.paidAt.replace(" ", "T")).toLocaleDateString("ru-RU")}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => resolveDuplicate({ action: "delete", paymentId: p.id })}
+                        className="label text-accent mt-2 hover:underline"
+                      >
+                        Удалить этот
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    resolveDuplicate({ action: "dismiss", paymentA: d.a.id, paymentB: d.b.id })
+                  }
+                  className="label text-muted mt-2 hover:text-ink"
+                >
+                  Это разные траты
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {payments.length > 0 && (
         <div>
