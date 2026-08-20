@@ -195,7 +195,7 @@ export default function PipelinePage() {
           if (inStage.length === 0) return null;
           return (
             <div key={stage}>
-              <p className="label text-accent mb-3">
+              <p className="section-title mb-3">
                 {dealStageLabel[stage]} · {inStage.length} ·{" "}
                 {money(inStage.reduce((s, d) => s + d.amount_kopecks, 0))}
               </p>
@@ -255,7 +255,7 @@ export default function PipelinePage() {
 
       {closed.length > 0 && (
         <div>
-          <p className="label text-accent mb-3">Закрытые · {closed.length}</p>
+          <p className="section-title mb-3">Закрытые · {closed.length}</p>
           <ul className="divide-y divide-line border-t border-line">
             {closed.map((d) => (
               <li key={d.id} className="flex flex-wrap items-baseline justify-between gap-2 py-3">

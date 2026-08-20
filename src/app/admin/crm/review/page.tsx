@@ -196,7 +196,7 @@ export default function ReviewQueuePage() {
 
       {duplicates.length > 0 && (
         <div>
-          <p className="label text-accent mb-1">Возможные дубли · {duplicates.length}</p>
+          <p className="section-title mb-1">Возможные дубли · {duplicates.length}</p>
           <p className="label text-muted mb-4">
             Одна сумма в одну сторону с разницей до трёх дней. Обычно это одна операция, внесённая
             и руками, и через трекер — пока дубль висит, прибыль и касса считаются неверно.
@@ -249,7 +249,7 @@ export default function ReviewQueuePage() {
 
       {payments.length > 0 && (
         <div>
-          <p className="label text-accent mb-1">Платежи без сделки · {payments.length}</p>
+          <p className="section-title mb-1">Платежи без сделки · {payments.length}</p>
           <p className="label text-muted mb-4">
             Эти деньги прошли по счёту, но не попадают в прибыль ни одного проекта, пока не привязаны.
           </p>
@@ -297,7 +297,7 @@ export default function ReviewQueuePage() {
 
       {mtTransactions.length > 0 && (
         <div>
-          <p className="label text-accent mb-1">Из Money Treker · {mtTransactions.length}</p>
+          <p className="section-title mb-1">Из Money Treker · {mtTransactions.length}</p>
           <p className="label text-muted mb-4">
             Бизнес-операции из трекера, ещё не разнесённые по сделкам. Свяжите с контрагентом и сделкой — станет
             платежом в CRM, или отклоните, если это не по делу.
@@ -373,7 +373,7 @@ export default function ReviewQueuePage() {
 
       {costs.length > 0 && (
         <div>
-          <p className="label text-accent mb-4">Затраты на уточнение · {costs.length}</p>
+          <p className="section-title mb-4">Затраты на уточнение · {costs.length}</p>
           <ul className="divide-y divide-line border-t border-line">
             {costs.map((c) => (
               <li key={c.id} className="py-4">

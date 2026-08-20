@@ -291,7 +291,7 @@ export default function DocumentDetailPage() {
                 </button>
               </div>
             ))}
-            <button type="button" onClick={() => setRows((prev) => [...prev, emptyRow()])} className="label text-accent">
+            <button type="button" onClick={() => setRows((prev) => [...prev, emptyRow()])} className="section-title">
               + позиция
             </button>
           </div>

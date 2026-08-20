@@ -48,7 +48,7 @@ export default function CrmLayout({ children }: { children: ReactNode }) {
   };
 
   return (
-    <div className="min-h-screen bg-bg">
+    <div className="crm min-h-screen bg-bg">
       <div className="hidden sm:flex print:hidden">
         <Sidebar />
 

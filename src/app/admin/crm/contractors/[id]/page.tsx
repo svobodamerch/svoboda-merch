@@ -209,11 +209,11 @@ export default function ContractorDetailPage() {
 
       <div>
         <div className="mb-4 flex items-center justify-between">
-          <p className="label text-accent">Контакты и адрес</p>
+          <p className="section-title">Контакты и адрес</p>
           <button
             type="button"
             onClick={() => setEditingContact((v) => !v)}
-            className="label text-accent"
+            className="section-title"
           >
             {editingContact ? "Отмена" : "Изменить"}
           </button>
@@ -386,11 +386,11 @@ export default function ContractorDetailPage() {
 
       <div>
         <div className="mb-4 flex items-center justify-between">
-          <p className="label text-accent">Работы — что делает и экономика</p>
+          <p className="section-title">Работы — что делает и экономика</p>
           <button
             type="button"
             onClick={() => setShowServiceForm((v) => !v)}
-            className="label text-accent"
+            className="section-title"
           >
             {showServiceForm ? "Отмена" : "+ работа"}
           </button>
@@ -474,7 +474,7 @@ export default function ContractorDetailPage() {
 
       <div className="grid gap-8 sm:grid-cols-2">
         <div>
-          <p className="label text-accent mb-4">Сделки</p>
+          <p className="section-title mb-4">Сделки</p>
           <form onSubmit={submitOrder} className="mb-4 space-y-2 rounded-2xl bg-surface p-5">
             <input
               className={field}
@@ -522,7 +522,7 @@ export default function ContractorDetailPage() {
         </div>
 
         <div>
-          <p className="label text-accent mb-4">Платежи</p>
+          <p className="section-title mb-4">Платежи</p>
           <form onSubmit={submitPayment} className="mb-4 space-y-2 rounded-2xl bg-surface p-5">
             <select
               className={field}
@@ -570,7 +570,7 @@ export default function ContractorDetailPage() {
       </div>
 
       <div>
-        <p className="label text-accent mb-4">Журнал</p>
+        <p className="section-title mb-4">Журнал</p>
         <ul className="divide-y divide-line border-t border-line">
           {activity.map((a) => (
             <li key={a.id} className="flex items-center justify-between py-3">

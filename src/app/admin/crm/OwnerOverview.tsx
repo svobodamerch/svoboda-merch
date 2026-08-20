@@ -42,7 +42,7 @@ export function OwnerOverview({ data }: { data: OwnerDashboard }) {
     <div className="space-y-8">
       {alerts.length > 0 && (
         <div>
-          <p className="label text-accent mb-4">Внимание</p>
+          <p className="section-title mb-4">Внимание</p>
           <div className="space-y-2">
             {alerts.map((a, i) => {
               const body = <span className="label">{a.title}</span>;
@@ -66,7 +66,7 @@ export function OwnerOverview({ data }: { data: OwnerDashboard }) {
 
       <div>
         <div className="mb-4 flex items-baseline justify-between">
-          <p className="label text-accent">Деньги</p>
+          <p className="section-title">Деньги</p>
           <Link href="/admin/crm/cash" className="label text-muted hover:text-accent">
             Прогноз кассы →
           </Link>
@@ -95,7 +95,7 @@ export function OwnerOverview({ data }: { data: OwnerDashboard }) {
       </div>
 
       <div>
-        <p className="label text-accent mb-4">Прибыль по активным проектам</p>
+        <p className="section-title mb-4">Прибыль по активным проектам</p>
         <div className="grid gap-3 sm:grid-cols-3">
           <Figure label="Прогноз выручки" value={money(profit.forecastRevenueKopecks)} />
           <Figure label="Прогноз прибыли" value={money(profit.forecastProfitKopecks)} />
@@ -109,7 +109,7 @@ export function OwnerOverview({ data }: { data: OwnerDashboard }) {
       {sales.count > 0 && (
         <div>
           <div className="mb-4 flex items-baseline justify-between">
-            <p className="label text-accent">Воронка · {sales.count}</p>
+            <p className="section-title">Воронка · {sales.count}</p>
             <Link href="/admin/crm/pipeline" className="label text-muted hover:text-accent">
               Все сделки →
             </Link>
@@ -128,7 +128,7 @@ export function OwnerOverview({ data }: { data: OwnerDashboard }) {
 
       <div>
         <div className="mb-4 flex items-baseline justify-between">
-          <p className="label text-accent">
+          <p className="section-title">
             Проекты: {projects.green} в норме · {projects.yellow} под вопросом · {projects.red} проблемных
           </p>
           <Link href="/admin/crm/orders" className="label text-muted hover:text-accent">

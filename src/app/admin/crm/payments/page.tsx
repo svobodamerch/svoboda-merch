@@ -131,7 +131,7 @@ export default function PaymentsPage() {
       {finance && finance.months.length > 0 && (
         <div>
           <div className="mb-4 flex items-baseline justify-between">
-            <p className="label text-accent">Отчёт по месяцам (CRM + Money Treker, бизнес)</p>
+            <p className="section-title">Отчёт по месяцам (CRM + Money Treker, бизнес)</p>
             {finance.moneyTrekerGeneratedAt && (
               <span className="label text-muted">
                 данные Money Treker на {new Date(finance.moneyTrekerGeneratedAt).toLocaleDateString("ru-RU")}

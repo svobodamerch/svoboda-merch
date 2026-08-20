@@ -182,10 +182,10 @@ export default function OrderDetailPage() {
         </div>
         {order.description && <p className="label text-ink-soft mt-2">{order.description}</p>}
         <div className="mt-2 flex items-center gap-4">
-          <Link href={`/admin/crm/contractors/${order.contractor_id}`} className="label text-accent">
+          <Link href={`/admin/crm/contractors/${order.contractor_id}`} className="label text-accent hover:underline">
             Контрагент #{order.contractor_id} →
           </Link>
-          <Link href={`/admin/crm/orders/${order.id}/proposal`} className="label text-accent">
+          <Link href={`/admin/crm/orders/${order.id}/proposal`} className="label text-accent hover:underline">
             Коммерческое предложение →
           </Link>
         </div>
@@ -194,7 +194,7 @@ export default function OrderDetailPage() {
       <ProjectEconomics data={data.financials} />
 
       <div>
-        <p className="label text-accent mb-4">Позиции</p>
+        <p className="section-title mb-4">Позиции</p>
 
         <div className="space-y-2">
           {rows.map((row, i) => (
@@ -257,7 +257,7 @@ export default function OrderDetailPage() {
           <button
             type="button"
             onClick={() => setRows((prev) => [...prev, emptyRow()])}
-            className="label text-accent"
+            className="section-title"
           >
             + позиция
           </button>
@@ -283,7 +283,7 @@ export default function OrderDetailPage() {
       <OrderCosts orderId={String(id)} onChanged={loadOrder} />
 
       <div>
-        <p className="label text-accent mb-4">Статус</p>
+        <p className="section-title mb-4">Статус</p>
         <div className="flex flex-wrap gap-2">
           {statuses.map((s) => (
             <button
@@ -301,7 +301,7 @@ export default function OrderDetailPage() {
       </div>
 
       <div>
-        <p className="label text-accent mb-4">Платежи по заказу</p>
+        <p className="section-title mb-4">Платежи по заказу</p>
 
         <div className="mb-4 grid grid-cols-2 gap-2 rounded-xl bg-surface p-3 sm:grid-cols-[120px_1fr_1fr_auto]">
           <select
@@ -350,7 +350,7 @@ export default function OrderDetailPage() {
       </div>
 
       <div>
-        <p className="label text-accent mb-4">Журнал</p>
+        <p className="section-title mb-4">Журнал</p>
         <ul className="divide-y divide-line border-t border-line">
           {activity.map((a) => (
             <li key={a.id} className="flex items-center justify-between py-3">

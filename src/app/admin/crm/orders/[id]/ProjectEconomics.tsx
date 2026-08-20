@@ -33,7 +33,7 @@ export function ProjectEconomics({ data }: { data: ProjectFinancials }) {
 
   return (
     <div>
-      <p className="label text-accent mb-4">Экономика проекта</p>
+      <p className="section-title mb-4">Экономика проекта</p>
 
       <div className="rounded-2xl bg-surface p-5">
         <div className="flex flex-wrap items-baseline justify-between gap-3">

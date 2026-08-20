@@ -119,7 +119,7 @@ export default function TasksPage() {
       </form>
 
       <div>
-        <p className="label text-accent mb-4">Открытые · {open.length}</p>
+        <p className="section-title mb-4">Открытые · {open.length}</p>
         <ul className="divide-y divide-line border-t border-line">
           {open.map((t) => (
             <TaskRow key={t.id} task={t} contractors={contractors} orders={orders} onChanged={load} />
@@ -130,7 +130,7 @@ export default function TasksPage() {
 
       {done.length > 0 && (
         <div>
-          <p className="label text-accent mb-4">Выполнено · {done.length}</p>
+          <p className="section-title mb-4">Выполнено · {done.length}</p>
           <ul className="divide-y divide-line border-t border-line">
             {done.slice(0, 30).map((t) => (
               <TaskRow key={t.id} task={t} contractors={contractors} orders={orders} onChanged={load} />

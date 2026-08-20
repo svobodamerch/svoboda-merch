@@ -29,7 +29,7 @@ export function PortalLink({ contractorId, slug: initialSlug }: { contractorId: 
 
   return (
     <div className="rounded-2xl bg-surface p-5">
-      <p className="label text-accent mb-2">Портал подрядчика</p>
+      <p className="section-title mb-2">Портал подрядчика</p>
       {slug ? (
         <div className="flex flex-wrap items-center gap-3">
           <span className="label text-ink-soft break-all">{link}</span>

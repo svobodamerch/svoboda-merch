@@ -55,7 +55,7 @@ export function ContractorContacts({ contractorId }: { contractorId: string }) {
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <p className="label text-accent">Контактные лица</p>
+        <p className="section-title">Контактные лица</p>
         <button
           type="button"
           onClick={() => setShowForm((v) => !v)}

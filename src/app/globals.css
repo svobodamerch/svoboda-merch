@@ -16,6 +16,11 @@
   --color-accent-soft: #a94d33;
   --color-tint: #f7ede8;
 
+  /* Внутри CRM своя гарнитура: моноширинный шрифт заглавными хорош для
+     обложки, но в плотных таблицах глаз теряет форму слова и читает
+     по буквам. См. слой .crm ниже */
+  --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+
   --font-heading: 'JetBrains Mono', ui-monospace, monospace;
   --font-body: 'JetBrains Mono', ui-monospace, monospace;
   --font-mono: 'JetBrains Mono', ui-monospace, monospace;
@@ -137,5 +142,65 @@
   @media (prefers-reduced-motion: reduce) {
     .marquee-track { animation: none; }
     [style*="animation: float"] { animation: none !important; }
+  }
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────────
+   CRM: рабочий интерфейс, а не витрина
+
+   Фирменный приём сайта — моноширинный шрифт капсом с разрядкой. На лендинге
+   он работает, в рабочем интерфейсе мешает: капс лишает слова силуэта,
+   моноширинный растягивает строку, 11px с разрядкой заставляет вчитываться.
+
+   Здесь тот же цвет и та же сдержанность, но текст читается: пропорциональная
+   гарнитура, обычный регистр, внятная разница размеров. Переопределяем
+   существующие классы, поэтому правка не требует трогать 376 мест разметки.
+   ───────────────────────────────────────────────────────────────────────── */
+@layer utilities {
+  .crm {
+    font-family: var(--font-ui);
+    font-size: 14px;
+    line-height: 1.5;
+    /* цифры одной ширины — колонки с деньгами не пляшут */
+    font-feature-settings: "tnum" 1, "cv05" 1;
+  }
+
+  .crm .label {
+    text-transform: none;
+    letter-spacing: 0;
+    font-size: 13px;
+    line-height: 1.45;
+  }
+
+  .crm .label-lg {
+    text-transform: none;
+    letter-spacing: -0.011em;
+    font-size: 19px;
+    font-weight: 600;
+    line-height: 1.25;
+  }
+
+  .crm .display {
+    text-transform: none;
+    letter-spacing: -0.02em;
+    font-weight: 600;
+  }
+
+  .crm input,
+  .crm select,
+  .crm textarea,
+  .crm button {
+    font-family: var(--font-ui);
+  }
+
+  /* Заголовок раздела. Тише подписи-акцента: цвет носит смысл — действие,
+     проблема, — а не украшает каждую вторую строку */
+  .crm .section-title {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    color: var(--color-ink);
+    line-height: 1.4;
   }
 }

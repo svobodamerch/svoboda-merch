@@ -138,7 +138,7 @@ export default function ProposalBuilderPage() {
         </Link>
         <div className="mt-2 flex items-center justify-between">
           <p className="label-lg text-ink">Коммерческое предложение</p>
-          <span className="label text-accent">{statusLabel[proposal.status] || proposal.status}</span>
+          <span className="section-title">{statusLabel[proposal.status] || proposal.status}</span>
         </div>
       </div>
 
@@ -200,7 +200,7 @@ export default function ProposalBuilderPage() {
 
           {events.length > 0 && (
             <div>
-              <p className="label text-accent mb-2 mt-6">История</p>
+              <p className="section-title mb-2 mt-6">История</p>
               <ul className="space-y-1">
                 {events.map((e) => (
                   <li key={e.id} className="label text-muted">

@@ -121,7 +121,7 @@ export default function CommitmentsPage() {
       </form>
 
       <div>
-        <p className="label text-accent mb-4">Открытые · {open.length}</p>
+        <p className="section-title mb-4">Открытые · {open.length}</p>
         {open.length === 0 ? (
           <p className="label text-muted">Ничего не висит</p>
         ) : (
@@ -159,7 +159,7 @@ export default function CommitmentsPage() {
 
       {done.length > 0 && (
         <div>
-          <p className="label text-accent mb-4">Выполненные · {done.length}</p>
+          <p className="section-title mb-4">Выполненные · {done.length}</p>
           <ul className="divide-y divide-line border-t border-line">
             {done.slice(0, 20).map((c) => (
               <li key={c.id} className="flex items-baseline justify-between gap-3 py-3">

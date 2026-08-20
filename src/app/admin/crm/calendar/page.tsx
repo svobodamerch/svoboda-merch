@@ -243,7 +243,7 @@ export default function CalendarPage() {
 
       {selected && (
         <div>
-          <p className="label text-accent mb-4">{formatDay(selected)}</p>
+          <p className="section-title mb-4">{formatDay(selected)}</p>
           {selectedEvents.length === 0 ? (
             <p className="label text-muted">Ничего не запланировано</p>
           ) : (

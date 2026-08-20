@@ -67,7 +67,7 @@ export default function ReconciliationPage() {
       </div>
 
       <div>
-        <p className="label text-accent mb-4">Расхождения ({data.exceptions.length})</p>
+        <p className="section-title mb-4">Расхождения ({data.exceptions.length})</p>
         {data.exceptions.length === 0 ? (
           <p className="label text-muted">Расхождений нет</p>
         ) : (
@@ -80,7 +80,7 @@ export default function ReconciliationPage() {
       </div>
 
       <div>
-        <p className="label text-accent mb-4">Открытые балансы ({data.open.length})</p>
+        <p className="section-title mb-4">Открытые балансы ({data.open.length})</p>
         {data.open.length === 0 ? (
           <p className="label text-muted">Все балансы закрыты</p>
         ) : (
@@ -93,7 +93,7 @@ export default function ReconciliationPage() {
       </div>
 
       <div>
-        <p className="label text-accent mb-4">Закрытые ({data.settled.length})</p>
+        <p className="section-title mb-4">Закрытые ({data.settled.length})</p>
         <ul className="divide-y divide-line border-t border-line">
           {data.settled.map((b) => (
             <Row key={b.contractorId} b={b} />

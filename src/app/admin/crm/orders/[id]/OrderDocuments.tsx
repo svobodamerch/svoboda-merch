@@ -84,7 +84,7 @@ export function OrderDocuments({
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <p className="label text-accent">Счета и акты</p>
+        <p className="section-title">Счета и акты</p>
         <button
           type="button"
           onClick={createInvoice}

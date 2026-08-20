@@ -70,7 +70,7 @@ export default function LegalEntitiesPage() {
                   <div key={a.id}>
                     <p className="label text-ink">
                       {a.bank_name}
-                      {!!a.is_default && <span className="label text-accent"> · основной</span>}
+                      {!!a.is_default && <span className="section-title"> · основной</span>}
                     </p>
                     <p className="label text-muted">
                       р/с {a.account_number} · БИК {a.bik}

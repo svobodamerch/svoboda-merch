@@ -88,7 +88,7 @@ export default function CashPage() {
       )}
 
       <div>
-        <p className="label text-accent mb-4">Остатки на счетах</p>
+        <p className="section-title mb-4">Остатки на счетах</p>
         <div className="space-y-2">
           {accounts.map((a) => (
             <div key={a.id} className="flex flex-wrap items-center gap-3 rounded-xl bg-surface p-4">
@@ -122,7 +122,7 @@ export default function CashPage() {
       </div>
 
       <div>
-        <p className="label text-accent mb-4">Горизонты</p>
+        <p className="section-title mb-4">Горизонты</p>
         <div className="grid gap-3 sm:grid-cols-3">
           {forecast.horizons.map((h) => (
             <div key={h.days} className="rounded-2xl bg-surface p-5">
@@ -163,7 +163,7 @@ export default function CashPage() {
       </div>
 
       <div>
-        <p className="label text-accent mb-4">Добавить ожидание</p>
+        <p className="section-title mb-4">Добавить ожидание</p>
         <form onSubmit={submit} className="grid gap-2 rounded-xl bg-surface p-4 sm:grid-cols-2">
           <select
             className={field}
@@ -226,7 +226,7 @@ export default function CashPage() {
       </div>
 
       <div>
-        <p className="label text-accent mb-4">Ожидаемые события</p>
+        <p className="section-title mb-4">Ожидаемые события</p>
         {expected.length === 0 ? (
           <p className="label text-muted">Пока ничего не запланировано</p>
         ) : (

@@ -91,7 +91,7 @@ export default function CrmDashboardPage() {
 
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="rounded-2xl bg-tint p-7">
-          <p className="label text-accent mb-2">Оплачено нам в этом месяце</p>
+          <p className="section-title mb-2">Оплачено нам в этом месяце</p>
           <p className="display text-ink" style={{ fontSize: "2rem" }}>
             {money(data.monthRevenueKopecks)}
           </p>
@@ -113,7 +113,7 @@ export default function CrmDashboardPage() {
 
       <div>
         <div className="mb-4 flex items-baseline justify-between">
-          <p className="label text-accent">Задачи на сегодня{tasks.some((t) => t.due_at && isOverdue(t.due_at)) ? " и просроченные" : ""}</p>
+          <p className="section-title">Задачи на сегодня{tasks.some((t) => t.due_at && isOverdue(t.due_at)) ? " и просроченные" : ""}</p>
           <Link href="/admin/crm/tasks" className="label text-muted hover:text-accent">
             Все задачи →
           </Link>
@@ -154,7 +154,7 @@ export default function CrmDashboardPage() {
 
       <div>
         <div className="mb-4 flex items-baseline justify-between">
-          <p className="label text-accent">Сделки в работе</p>
+          <p className="section-title">Сделки в работе</p>
           <Link href="/admin/crm/orders" className="label text-muted hover:text-accent">
             Все сделки →
           </Link>
@@ -182,7 +182,7 @@ export default function CrmDashboardPage() {
 
       <div className="grid gap-6 sm:grid-cols-2">
         <div>
-          <p className="label text-accent mb-4">Должны нам</p>
+          <p className="section-title mb-4">Должны нам</p>
           {data.debts.owedToUs.length === 0 ? (
             <p className="label text-muted">Никто не должен</p>
           ) : (
@@ -194,7 +194,7 @@ export default function CrmDashboardPage() {
                     className="flex items-center justify-between rounded-xl bg-surface px-4 py-3 hover:bg-tint"
                   >
                     <span className="label text-ink">{d.name}</span>
-                    <span className="label text-accent">{money(d.outstandingKopecks)}</span>
+                    <span className="section-title">{money(d.outstandingKopecks)}</span>
                   </Link>
                 </li>
               ))}
@@ -203,7 +203,7 @@ export default function CrmDashboardPage() {
         </div>
 
         <div>
-          <p className="label text-accent mb-4">Должны мы</p>
+          <p className="section-title mb-4">Должны мы</p>
           {data.debts.weOwe.length === 0 ? (
             <p className="label text-muted">Никому не должны</p>
           ) : (
@@ -225,7 +225,7 @@ export default function CrmDashboardPage() {
       </div>
 
       <div>
-        <p className="label text-accent mb-4">Бортовой журнал</p>
+        <p className="section-title mb-4">Бортовой журнал</p>
         {data.activity.length === 0 ? (
           <p className="label text-muted">Пока пусто</p>
         ) : (

@@ -125,7 +125,7 @@ export function OrderCosts({ orderId, onChanged }: { orderId: string; onChanged:
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <p className="label text-accent">Затраты</p>
+        <p className="section-title">Затраты</p>
         <button
           type="button"
           onClick={() => setShowForm((v) => !v)}
