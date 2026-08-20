@@ -72,6 +72,24 @@ export default function ReviewQueuePage() {
   const [mtOrderDrafts, setMtOrderDrafts] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState<number | null>(null);
   const [mtBusy, setMtBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  /** Молчаливый отказ выглядит как «кнопка не работает» — показываем причину */
+  const send = async (url: string, init?: RequestInit) => {
+    setError(null);
+    try {
+      const r = await fetch(url, init);
+      if (!r.ok) {
+        const d = await r.json().catch(() => ({}));
+        setError(d.error || `Сервер ответил ${r.status}. Попробуйте ещё раз`);
+        return false;
+      }
+      return true;
+    } catch {
+      setError("Нет связи с сервером — возможно, идёт обновление. Повторите через минуту");
+      return false;
+    }
+  };
 
   const load = () => {
     fetch("/api/crm/review")
@@ -121,7 +139,7 @@ export default function ReviewQueuePage() {
 
   const linkMt = async (id: string) => {
     setMtBusy(id);
-    await fetch(`/api/crm/review/money-treker/${id}`, {
+    const ok = await send(`/api/crm/review/money-treker/${id}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -130,7 +148,7 @@ export default function ReviewQueuePage() {
       }),
     });
     setMtBusy(null);
-    load();
+    if (ok) load();
   };
 
   const dismissMt = async (id: string) => {
@@ -148,12 +166,12 @@ export default function ReviewQueuePage() {
     costs.length === 0 && payments.length === 0 && mtTransactions.length === 0 && duplicates.length === 0;
 
   const resolveDuplicate = async (body: Record<string, unknown>) => {
-    await fetch("/api/crm/review/duplicates", {
+    const ok = await send("/api/crm/review/duplicates", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
-    load();
+    if (ok) load();
   };
 
   return (
@@ -165,11 +183,15 @@ export default function ReviewQueuePage() {
         </p>
       </div>
 
+      {error && (
+        <p className="label rounded-xl bg-red-50 px-4 py-3 text-red-700">{error}</p>
+      )}
+
       {duplicates.length > 0 && (
         <div>
           <p className="label text-accent mb-1">Возможные дубли · {duplicates.length}</p>
           <p className="label text-muted mb-4">
-            Одна сумма в одну сторону с разницей до трёх дней. Обычно это одна трата, внесённая
+            Одна сумма в одну сторону с разницей до трёх дней. Обычно это одна операция, внесённая
             и руками, и через трекер — пока дубль висит, прибыль и касса считаются неверно.
           </p>
           <ul className="divide-y divide-line border-t border-line">
@@ -210,7 +232,7 @@ export default function ReviewQueuePage() {
                   }
                   className="label text-muted mt-2 hover:text-ink"
                 >
-                  Это разные траты
+                  Это разные операции
                 </button>
               </li>
             ))}
