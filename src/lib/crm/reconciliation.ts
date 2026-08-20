@@ -68,7 +68,10 @@ const BALANCE_SELECT = `
 function toBalance(r: Row): ContractorBalance {
   const isSupplier = r.type === "supplier";
   const accrued = isSupplier ? r.accrued_costs : r.orders_total;
-  const paid = isSupplier ? r.paid_out : r.paid_in;
+  // Деньги считаем в обе стороны: возврат клиенту уменьшает полученное от него,
+  // возврат от подрядчика — уплаченное ему. Иначе возврат просто исчезает
+  // из баланса, как это случилось со «СНЕГОПАДом»
+  const paid = isSupplier ? r.paid_out - r.paid_in : r.paid_in - r.paid_out;
   const outstanding = r.opening_balance_kopecks + accrued - paid;
 
   return {

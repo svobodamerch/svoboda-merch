@@ -1439,6 +1439,12 @@ export function getOrCreateExpenseCategory(name: string, kind: ExpenseCategoryKi
     .get(name, kind) as ExpenseCategory;
 }
 
+/** Переключить статью между постоянной и переменной */
+export function setExpenseCategoryKind(id: number, kind: ExpenseCategoryKind): void {
+  const db = getCrmDb();
+  db.prepare(`UPDATE expense_categories SET kind = ? WHERE id = ?`).run(kind, id);
+}
+
 export function deleteExpenseCategory(id: number): void {
   const db = getCrmDb();
   db.prepare(`DELETE FROM expense_categories WHERE id = ?`).run(id);

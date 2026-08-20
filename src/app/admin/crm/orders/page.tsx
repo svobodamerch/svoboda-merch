@@ -1,7 +1,7 @@
 "use client";
 
-import Link from "next/link";
-import { useEffect, useState, type DragEvent, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState, type DragEvent, type FormEvent } from "react";
 import type { OrderBadge } from "@/lib/crm/finance";
 
 type Contractor = { id: number; name: string };
@@ -47,6 +47,9 @@ export default function OrdersPage() {
   const [form, setForm] = useState({ contractorId: "", title: "", amount: "", description: "", deadline: "" });
   const [saving, setSaving] = useState(false);
   const [dragOverStatus, setDragOverStatus] = useState<string | null>(null);
+  const router = useRouter();
+  // перетаскивание не должно срабатывать как клик по карточке
+  const draggedRef = useRef(false);
 
   const load = () => {
     fetch("/api/crm/orders")
@@ -182,12 +185,19 @@ export default function OrdersPage() {
                   <div
                     key={o.id}
                     draggable
-                    onDragStart={(e) => e.dataTransfer.setData("text/order-id", String(o.id))}
-                    className="cursor-grab rounded-xl bg-bg p-3 shadow-[0_2px_8px_-4px_rgba(34,48,79,0.3)] active:cursor-grabbing"
+                    onDragStart={(e) => {
+                      draggedRef.current = true;
+                      e.dataTransfer.setData("text/order-id", String(o.id));
+                    }}
+                    onDragEnd={() => {
+                      draggedRef.current = false;
+                    }}
+                    onClick={() => {
+                      if (!draggedRef.current) router.push(`/admin/crm/orders/${o.id}`);
+                    }}
+                    className="cursor-pointer rounded-xl bg-bg p-3 shadow-[0_2px_8px_-4px_rgba(34,48,79,0.3)] transition-shadow hover:shadow-[0_4px_14px_-4px_rgba(34,48,79,0.35)] active:cursor-grabbing"
                   >
-                    <Link href={`/admin/crm/orders/${o.id}`} className="label text-ink hover:text-accent">
-                      {o.title}
-                    </Link>
+                    <p className="label text-ink">{o.title}</p>
                     <p className="label text-muted mt-1">{contractorName(o.contractor_id)}</p>
                     <p className="label text-ink mt-1">{money(o.amount_kopecks)}</p>
                     {o.badges?.length > 0 && (

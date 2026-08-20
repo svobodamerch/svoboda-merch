@@ -124,6 +124,19 @@ export default function CalendarPage() {
     load();
   };
 
+  /** Задачу можно закрыть прямо отсюда — не уходя в список задач */
+  const completeTask = async (taskId: number) => {
+    setError(null);
+    setEvents((prev) => prev.filter((e) => !(e.type === "task" && e.id === taskId)));
+    const r = await fetch(`/api/crm/tasks/${taskId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "done" }),
+    }).catch(() => null);
+    if (!r || !r.ok) setError("Не удалось отметить задачу — вернул как было");
+    load();
+  };
+
   const onDrop = (e: DragEvent, date: string) => {
     e.preventDefault();
     setDragOver(null);
@@ -249,16 +262,26 @@ export default function CalendarPage() {
           ) : (
             <ul className="divide-y divide-line border-t border-line">
               {selectedEvents.map((e) => (
-                <li key={`${e.type}-${e.id}`} className="flex flex-wrap items-baseline justify-between gap-2 py-3">
-                  <div className="min-w-0">
-                    {e.type === "order" ? (
-                      <Link href={`/admin/crm/orders/${e.id}`} className="label text-ink hover:text-accent">
-                        {e.title}
-                      </Link>
-                    ) : (
-                      <span className="label text-ink">{e.title}</span>
+                <li key={`${e.type}-${e.id}`} className="flex flex-wrap items-start justify-between gap-2 py-3">
+                  <div className="flex min-w-0 gap-3">
+                    {e.type === "task" && (
+                      <button
+                        type="button"
+                        onClick={() => completeTask(e.id)}
+                        title="Отметить выполненной"
+                        className="mt-0.5 h-[18px] w-[18px] shrink-0 rounded-md border border-line hover:border-accent hover:bg-tint"
+                      />
                     )}
-                    {e.description && <p className="label text-muted mt-0.5">{e.description}</p>}
+                    <div className="min-w-0">
+                      {e.type === "order" ? (
+                        <Link href={`/admin/crm/orders/${e.id}`} className="label text-ink hover:text-accent">
+                          {e.title}
+                        </Link>
+                      ) : (
+                        <span className="label text-ink">{e.title}</span>
+                      )}
+                      {e.description && <p className="label text-muted mt-0.5">{e.description}</p>}
+                    </div>
                   </div>
                   <span className={`rounded-md px-1.5 py-0.5 text-[10px] shrink-0 ${typeStyle[e.type]}`}>
                     {typeName[e.type]}

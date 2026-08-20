@@ -73,6 +73,7 @@ export default function ContractorDetailPage() {
   const [orderForm, setOrderForm] = useState({ title: "", amount: "", description: "" });
   const [paymentForm, setPaymentForm] = useState({ direction: "in", amount: "", comment: "" });
   const [contactForm, setContactForm] = useState({
+    type: "client",
     company: "",
     inn: "",
     kpp: "",
@@ -109,6 +110,7 @@ export default function ContractorDetailPage() {
       .then((d: Detail) => {
         setData(d);
         setContactForm({
+          type: d.contractor.type || "client",
           company: d.contractor.company || "",
           inn: d.contractor.inn || "",
           kpp: d.contractor.kpp || "",
@@ -221,6 +223,20 @@ export default function ContractorDetailPage() {
 
         {editingContact ? (
           <form onSubmit={submitContact} className="grid gap-3 rounded-2xl bg-surface p-5 sm:grid-cols-2">
+            <div className="sm:col-span-2">
+              <label className="label text-muted mb-1.5 block">
+                Роль — от неё зависит расчёт долга: подрядчику мы платим, клиент платит нам
+              </label>
+              <select
+                className={field}
+                value={contactForm.type}
+                onChange={(e) => setContactForm((f) => ({ ...f, type: e.target.value }))}
+              >
+                <option value="client">Покупатель</option>
+                <option value="supplier">Поставщик</option>
+                <option value="both">И покупатель, и поставщик</option>
+              </select>
+            </div>
             <input
               className={field}
               placeholder="Компания"
