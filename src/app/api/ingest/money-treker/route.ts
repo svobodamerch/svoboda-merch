@@ -4,7 +4,13 @@ import {
   suggestForTransaction,
   type IncomingMtTransaction,
 } from "@/lib/crm/ingest";
-import { dismissMtTransaction, getMtInboxTransaction, saveMtInbox } from "@/lib/crm/db";
+import {
+  dismissMtTransaction,
+  getExpenseCategories,
+  getMtInboxTransaction,
+  saveMtInbox,
+  getCrmDb,
+} from "@/lib/crm/db";
 
 /**
  * Приём бизнес-операций из бота Money Treker в момент ввода.
@@ -47,6 +53,18 @@ export async function POST(request: NextRequest) {
   const actor = String(body.actor || "bot:money-treker");
   const id = String(body.id || "").trim();
 
+  // Списки для кнопок бота. Отдельное действие, потому что здесь ещё нет
+  // ни суммы, ни типа операции — только выбор, куда её отнести
+  if (action === "options") {
+    const orders = getCrmDb()
+      .prepare(
+        `SELECT id, title FROM orders WHERE status NOT IN ('done', 'cancelled')
+         ORDER BY deadline IS NULL, deadline`,
+      )
+      .all();
+    return NextResponse.json({ orders, categories: getExpenseCategories() });
+  }
+
   if (action === "suggest") {
     const tx = readTransaction(body);
     if (!tx) {
@@ -71,6 +89,8 @@ export async function POST(request: NextRequest) {
       {
         orderId: body.orderId ? Number(body.orderId) : undefined,
         contractorId: body.contractorId ? Number(body.contractorId) : undefined,
+        // накладной расход к сделке не относится — у него статья, а не проект
+        categoryId: body.categoryId ? Number(body.categoryId) : undefined,
       },
       actor,
     );

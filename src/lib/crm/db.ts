@@ -1375,7 +1375,9 @@ export type PaymentInput = {
 function inferCashKind(input: PaymentInput): CashKind {
   if (input.kind) return input.kind;
   if (input.direction === "in") return "client_payment";
-  return input.contractor_id ? "contractor_payment" : "overhead";
+  if (input.contractor_id) return "contractor_payment";
+  // накладные — только то, что не относится к проекту
+  return input.order_id ? "project_cost" : "overhead";
 }
 
 export function createPayment(input: PaymentInput, actor?: string): Payment {

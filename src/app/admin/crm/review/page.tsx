@@ -6,6 +6,7 @@ import { ContractorPicker } from "@/components/crm/ContractorPicker";
 
 type Contractor = { id: number; name: string; company: string | null };
 type Order = { id: number; title: string };
+type Category = { id: number; name: string; kind: "fixed" | "variable" };
 
 type ReviewCost = {
   id: number;
@@ -66,6 +67,8 @@ export default function ReviewQueuePage() {
   const [duplicates, setDuplicates] = useState<DuplicatePair[]>([]);
   const [contractors, setContractors] = useState<Contractor[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [mtCategoryDrafts, setMtCategoryDrafts] = useState<Record<string, string>>({});
   const [drafts, setDrafts] = useState<Record<number, string>>({});
   const [payDrafts, setPayDrafts] = useState<Record<number, string>>({});
   const [mtContractorDrafts, setMtContractorDrafts] = useState<Record<string, string>>({});
@@ -109,6 +112,9 @@ export default function ReviewQueuePage() {
     fetch("/api/crm/orders")
       .then((r) => r.json())
       .then((d) => setOrders(d.orders));
+    fetch("/api/crm/expense-categories")
+      .then((r) => r.json())
+      .then((d) => setCategories(d.categories || []));
   };
 
   useEffect(load, []);
@@ -145,6 +151,7 @@ export default function ReviewQueuePage() {
       body: JSON.stringify({
         contractorId: mtContractorDrafts[id] || undefined,
         orderId: mtOrderDrafts[id] || undefined,
+        categoryId: mtCategoryDrafts[id] || undefined,
       }),
     });
     setMtBusy(null);
@@ -326,6 +333,18 @@ export default function ReviewQueuePage() {
                     {orders.map((o) => (
                       <option key={o.id} value={o.id}>
                         {o.title}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    className={field}
+                    value={mtCategoryDrafts[t.id] ?? ""}
+                    onChange={(e) => setMtCategoryDrafts((d) => ({ ...d, [t.id]: e.target.value }))}
+                  >
+                    <option value="">или статья накладных…</option>
+                    {categories.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.kind === "fixed" ? "◆" : "◇"} {c.name}
                       </option>
                     ))}
                   </select>
