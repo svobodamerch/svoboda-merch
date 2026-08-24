@@ -8,6 +8,7 @@ import { OrderCosts } from "./OrderCosts";
 import { OrderLegalEntity } from "./OrderLegalEntity";
 import { OrderDocuments } from "./OrderDocuments";
 import { ProjectEconomics } from "./ProjectEconomics";
+import { QuickUpdate } from "./QuickUpdate";
 import type { ProjectFinancials } from "@/lib/crm/finance";
 
 type Order = {
@@ -181,13 +182,16 @@ export default function OrderDetailPage() {
           <span className="label text-ink">{money(order.amount_kopecks)}</span>
         </div>
         {order.description && <p className="label text-ink-soft mt-2">{order.description}</p>}
-        <div className="mt-2 flex items-center gap-4">
+        <div className="mt-2 flex flex-wrap items-center gap-4">
           <Link href={`/admin/crm/contractors/${order.contractor_id}`} className="label text-accent hover:underline">
             Контрагент #{order.contractor_id} →
           </Link>
           <Link href={`/admin/crm/orders/${order.id}/proposal`} className="label text-accent hover:underline">
             Коммерческое предложение →
           </Link>
+        </div>
+        <div className="mt-3">
+          <QuickUpdate orderId={id} onApplied={loadOrder} />
         </div>
       </div>
 
