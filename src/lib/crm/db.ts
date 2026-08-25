@@ -634,6 +634,21 @@ function initSchema(db: Database.Database) {
     CREATE INDEX IF NOT EXISTS idx_day_conclusions_day ON day_conclusions(day);
     CREATE INDEX IF NOT EXISTS idx_day_conclusions_status ON day_conclusions(status);
 
+    -- Документы, которые контрагенты периодически запрашивают у наших ИП
+    -- при онбординге (ОГРНИП, ИНН, паспорт, согласие на ПД, анкета).
+    -- Список пунктов свой на каждом юрлице — набор документов время от
+    -- времени отличается от запроса к запросу.
+    CREATE TABLE IF NOT EXISTS legal_entity_documents (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      legal_entity_id INTEGER NOT NULL REFERENCES legal_entities(id),
+      title TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'open',
+      note TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      done_at TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_legal_entity_documents_entity ON legal_entity_documents(legal_entity_id);
+
     CREATE INDEX IF NOT EXISTS idx_expected_cash_status ON expected_cash_events(status);
     CREATE INDEX IF NOT EXISTS idx_expected_cash_date ON expected_cash_events(expected_at);
 
@@ -1694,6 +1709,48 @@ export function updateBankAccountBalance(id: number, balanceKopecks: number): vo
   db.prepare(
     `UPDATE bank_accounts SET current_balance_kopecks = ?, balance_updated_at = datetime('now') WHERE id = ?`,
   ).run(Math.round(balanceKopecks), id);
+}
+
+export type LegalEntityDocument = {
+  id: number;
+  legal_entity_id: number;
+  title: string;
+  status: "open" | "done";
+  note: string | null;
+  created_at: string;
+  done_at: string | null;
+};
+
+export function getLegalEntityDocuments(legalEntityId: number): LegalEntityDocument[] {
+  const db = getCrmDb();
+  return db
+    .prepare(`SELECT * FROM legal_entity_documents WHERE legal_entity_id = ? ORDER BY id`)
+    .all(legalEntityId) as LegalEntityDocument[];
+}
+
+export function addLegalEntityDocument(
+  legalEntityId: number,
+  title: string,
+  note?: string,
+): LegalEntityDocument {
+  const db = getCrmDb();
+  return db
+    .prepare(
+      `INSERT INTO legal_entity_documents (legal_entity_id, title, note) VALUES (?, ?, ?) RETURNING *`,
+    )
+    .get(legalEntityId, title, note || null) as LegalEntityDocument;
+}
+
+export function setLegalEntityDocumentStatus(id: number, status: "open" | "done"): void {
+  const db = getCrmDb();
+  db.prepare(
+    `UPDATE legal_entity_documents SET status = ?, done_at = CASE WHEN ? = 'done' THEN datetime('now') ELSE NULL END WHERE id = ?`,
+  ).run(status, status, id);
+}
+
+export function deleteLegalEntityDocument(id: number): void {
+  const db = getCrmDb();
+  db.prepare(`DELETE FROM legal_entity_documents WHERE id = ?`).run(id);
 }
 
 export function getLegalEntities(): LegalEntity[] {
