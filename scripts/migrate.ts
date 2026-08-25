@@ -15,7 +15,11 @@
  * а нативное срезание типов появилось в 22.6.
  */
 import { getCrmDb } from "../src/lib/crm/db";
+// leads (заявки с сайта) — отдельный модуль с собственной миграцией
+// (converted_contractor_id и др.), её тоже нужно применять при деплое
+import { getDb } from "../src/lib/db";
 
+getDb();
 const db = getCrmDb();
 
 const tables = db
