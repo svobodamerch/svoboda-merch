@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createLead, getLeads, type LeadStatus } from "@/lib/db";
+import { createLead } from "@/lib/db";
 import { sendManagerNotification } from "@/lib/email";
 import { createNotionLead } from "@/lib/notion";
 import { notifyNewLead } from "@/lib/telegram";
@@ -76,17 +76,6 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function GET(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const status = searchParams.get("status") as LeadStatus | null;
-    const leads = getLeads(status || undefined);
-    return NextResponse.json({ leads });
-  } catch (error) {
-    console.error("[api/leads] GET error:", error);
-    return NextResponse.json(
-      { error: "Ошибка сервера" },
-      { status: 500 },
-    );
-  }
-}
+// Чтение заявок (имена, телефоны, комментарии клиентов) сюда специально не
+// вынесено: этот путь не под /api/crm и не защищён сессией — здесь принимают
+// форму с сайта. Список заявок отдаёт /api/crm/leads, куда без входа не попасть.

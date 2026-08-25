@@ -114,3 +114,14 @@ export function IconDay({ className }: IconProps) {
     </svg>
   );
 }
+
+/** Входящий лоток — заявки, ждущие разбора */
+export function IconInbox({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 20 20" className={className} {...common}>
+      <path d="M2.5 11.5 5 4.5h10l2.5 7" />
+      <path d="M2.5 11.5v4a1 1 0 0 0 1 1h13a1 1 0 0 0 1-1v-4" />
+      <path d="M2.5 11.5h4l1 2h5l1-2h4" />
+    </svg>
+  );
+}

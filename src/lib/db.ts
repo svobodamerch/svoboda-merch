@@ -10,6 +10,7 @@ export function getDb(): Database.Database {
   db = new Database(DB_PATH);
   db.pragma("journal_mode = WAL");
   initSchema(db);
+  ensureTelegramColumn(db);
   return db;
 }
 
@@ -44,6 +45,7 @@ export type Lead = {
   name: string;
   company: string | null;
   phone: string;
+  telegram: string | null;
   product_type: string;
   quantity: string;
   comment: string | null;
@@ -54,6 +56,8 @@ export type Lead = {
   email_sent: number;
   created_at: string;
   updated_at: string;
+  converted_contractor_id: number | null;
+  converted_order_id: number | null;
 };
 
 export type LeadInput = {
@@ -80,6 +84,14 @@ function ensureTelegramColumn(db: ReturnType<typeof getDb>) {
   );
   if (!cols.includes("telegram")) {
     db.exec("ALTER TABLE leads ADD COLUMN telegram TEXT");
+  }
+  // Заявка, ставшая сделкой, должна на неё ссылаться — иначе связь
+  // с историей обращения теряется в момент, когда лид заводится в CRM руками
+  if (!cols.includes("converted_contractor_id")) {
+    db.exec("ALTER TABLE leads ADD COLUMN converted_contractor_id INTEGER");
+  }
+  if (!cols.includes("converted_order_id")) {
+    db.exec("ALTER TABLE leads ADD COLUMN converted_order_id INTEGER");
   }
 }
 
@@ -135,6 +147,14 @@ export function updateLeadNotes(id: number, notes: string): void {
     UPDATE leads SET notes = ?, updated_at = datetime('now') WHERE id = ?
   `);
   stmt.run(notes, id);
+}
+
+/** Заявка стала контрагентом и сделкой — запоминаем связь, чтобы не завести дважды */
+export function linkLeadConversion(id: number, contractorId: number, orderId: number): void {
+  const db = getDb();
+  db.prepare(
+    `UPDATE leads SET converted_contractor_id = ?, converted_order_id = ?, status = 'done', updated_at = datetime('now') WHERE id = ?`,
+  ).run(contractorId, orderId, id);
 }
 
 export function markEmailSent(id: number): void {

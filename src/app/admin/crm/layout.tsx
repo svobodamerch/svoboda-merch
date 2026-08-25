@@ -12,6 +12,7 @@ const MOBILE_TABS = [
   { href: "/admin/crm", label: "Дашборд" },
   { href: "/admin/crm/calendar", label: "Календарь" },
   { href: "/admin/crm/day", label: "Итог дня" },
+  { href: "/admin/crm/leads", label: "Заявки" },
   { href: "/admin/crm/orders", label: "Сделки" },
   { href: "/admin/crm/tasks", label: "Задачи" },
   { href: "/admin/crm/commitments", label: "Обещания" },

@@ -53,7 +53,7 @@ export async function sendManagerNotification(
 Тираж: ${data.quantity}${deadline}${comment}
 
 —
-CRM: http://localhost:3000/admin/leads`;
+CRM: https://svoboda.site/admin/crm/leads`;
 
   try {
     await transporter.sendMail({
