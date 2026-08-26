@@ -693,6 +693,20 @@ function initSchema(db: Database.Database) {
       created_by TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
+
+    -- Файлы к заказу (брифы, сметы, референсы). Сам файл лежит на диске
+    -- (data/uploads/orders/{order_id}/{id}-{filename}), здесь только метаданные.
+    CREATE TABLE IF NOT EXISTS order_attachments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      order_id INTEGER NOT NULL REFERENCES orders(id),
+      filename TEXT NOT NULL,
+      original_name TEXT NOT NULL,
+      mime_type TEXT NOT NULL,
+      size_bytes INTEGER NOT NULL,
+      created_by TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_order_attachments_order ON order_attachments(order_id);
   `);
 }
 
@@ -1306,6 +1320,52 @@ export function createOrder(input: OrderInput, actor?: string): Order {
 
   logActivity("order", order.id, "created", `Создан заказ «${order.title}»`, actor);
   return order;
+}
+
+// ---------- Файлы к заказу ----------
+
+export type OrderAttachment = {
+  id: number;
+  order_id: number;
+  filename: string;
+  original_name: string;
+  mime_type: string;
+  size_bytes: number;
+  created_by: string | null;
+  created_at: string;
+};
+
+export function createOrderAttachment(
+  input: { order_id: number; filename: string; original_name: string; mime_type: string; size_bytes: number },
+  actor?: string,
+): OrderAttachment {
+  const db = getCrmDb();
+  const row = db
+    .prepare(
+      `INSERT INTO order_attachments (order_id, filename, original_name, mime_type, size_bytes, created_by)
+       VALUES (?, ?, ?, ?, ?, ?)
+       RETURNING *`,
+    )
+    .get(input.order_id, input.filename, input.original_name, input.mime_type, input.size_bytes, actor || null) as OrderAttachment;
+  logActivity("order", input.order_id, "attachment", `Добавлен файл «${input.original_name}»`, actor);
+  return row;
+}
+
+export function getOrderAttachments(orderId: number): OrderAttachment[] {
+  const db = getCrmDb();
+  return db
+    .prepare(`SELECT * FROM order_attachments WHERE order_id = ? ORDER BY created_at DESC`)
+    .all(orderId) as OrderAttachment[];
+}
+
+export function getOrderAttachmentById(id: number): OrderAttachment | undefined {
+  const db = getCrmDb();
+  return db.prepare(`SELECT * FROM order_attachments WHERE id = ?`).get(id) as OrderAttachment | undefined;
+}
+
+export function deleteOrderAttachment(id: number): void {
+  const db = getCrmDb();
+  db.prepare(`DELETE FROM order_attachments WHERE id = ?`).run(id);
 }
 
 export function getOrders(status?: OrderStatus): Order[] {

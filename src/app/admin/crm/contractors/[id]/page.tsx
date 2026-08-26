@@ -6,6 +6,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { ContractorContacts } from "./ContractorContacts";
 import { PortalLink } from "./PortalLink";
 import { ContractorBalanceBlock } from "./ContractorBalanceBlock";
+import { QuickUpdate } from "../../orders/[id]/QuickUpdate";
 import type { ContractorBalance } from "@/lib/crm/reconciliation";
 
 type Contractor = {
@@ -207,6 +208,9 @@ export default function ContractorDetailPage() {
         </Link>
         <p className="label-lg text-ink mt-2">{contractor.name}</p>
         <ContractorBalanceBlock balance={balance} contractorId={String(id)} onChanged={load} />
+        <div className="mt-3">
+          <QuickUpdate endpoint={`/api/crm/contractors/${id}/quick-update`} onApplied={load} />
+        </div>
       </div>
 
       <div>

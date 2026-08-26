@@ -1,5 +1,6 @@
 import { createPayment, createTask, getLegalEntities, getOrderById, logActivity } from "./db";
 import { getProjectFinancials } from "./finance";
+import { getContractorBalanceDetailed } from "./reconciliation";
 
 /**
  * Быстрое обновление сделки свободным текстом: «оплачено полностью на ИП
@@ -151,25 +152,40 @@ export async function parseQuickUpdate(text: string): Promise<QuickUpdateResult>
   };
 }
 
-export type ApplyTarget = { orderId: number };
+/** Сделка, контрагент без сделки, или вообще без привязки (задача-заметка «в воздухе») */
+export type ApplyTarget = { orderId: number } | { contractorId: number } | Record<string, never>;
 
-/** Применяет подтверждённые пользователем действия к конкретной сделке */
+/** Применяет подтверждённые пользователем действия к сделке, контрагенту или ни к чему конкретному */
 export function applyQuickActions(target: ApplyTarget, actions: QuickAction[], actor?: string): void {
-  const order = getOrderById(target.orderId);
-  if (!order) throw new Error("Сделка не найдена");
+  const orderId = "orderId" in target ? target.orderId : undefined;
+  const order = orderId !== undefined ? getOrderById(orderId) : undefined;
+  if (orderId !== undefined && !order) throw new Error("Сделка не найдена");
+
+  const contractorId = "contractorId" in target ? target.contractorId : order?.contractor_id ?? null;
+  const entityType = orderId !== undefined ? "order" : contractorId !== null ? "contractor" : null;
+  const entityId = orderId ?? contractorId ?? null;
 
   for (const action of actions) {
     if (action.type === "payment") {
-      const amountKopecks =
-        action.amount === "full"
-          ? Math.max(getProjectFinancials(target.orderId).receivableKopecks, 0)
-          : action.amount;
+      let amountKopecks: number;
+      if (action.amount === "full") {
+        if (orderId !== undefined) {
+          amountKopecks = Math.max(getProjectFinancials(orderId).receivableKopecks, 0);
+        } else if (contractorId !== null) {
+          const outstanding = getContractorBalanceDetailed(contractorId)?.outstandingKopecks ?? 0;
+          amountKopecks = Math.max(outstanding, 0);
+        } else {
+          continue; // "весь остаток" без сделки и контрагента посчитать не от чего
+        }
+      } else {
+        amountKopecks = action.amount;
+      }
       if (amountKopecks <= 0) continue;
 
       createPayment(
         {
-          contractor_id: order.contractor_id,
-          order_id: target.orderId,
+          contractor_id: contractorId ?? undefined,
+          order_id: orderId,
           direction: action.direction,
           amount_kopecks: amountKopecks,
           comment: action.comment || "Быстрое обновление",
@@ -180,11 +196,13 @@ export function applyQuickActions(target: ApplyTarget, actions: QuickAction[], a
       );
     } else if (action.type === "task") {
       createTask(
-        { title: action.title, order_id: target.orderId, contractor_id: order.contractor_id, source: "quick_update" },
+        { title: action.title, order_id: orderId, contractor_id: contractorId ?? undefined, source: "quick_update" },
         actor,
       );
     } else if (action.type === "note") {
-      logActivity("order", target.orderId, "note", action.text, actor);
+      if (entityType && entityId !== null) {
+        logActivity(entityType, entityId, "note", action.text, actor);
+      }
     }
   }
 }

@@ -13,6 +13,12 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  // Файлы к заказу (брифы, сметы) приходят как многомегабайтные PDF/xlsx —
+  // middleware (проверка сессии на /api/crm/*) по умолчанию буферизует
+  // не больше 10MB тела запроса и режет остальное.
+  experimental: {
+    middlewareClientMaxBodySize: "50mb",
+  },
 };
 
 export default nextConfig;

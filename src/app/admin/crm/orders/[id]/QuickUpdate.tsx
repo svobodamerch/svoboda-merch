@@ -26,7 +26,7 @@ const actionLabel = (a: QuickAction): string => {
   return `Заметка: ${a.text}`;
 };
 
-export function QuickUpdate({ orderId, onApplied }: { orderId: string; onApplied: () => void }) {
+export function QuickUpdate({ endpoint, onApplied }: { endpoint: string; onApplied: () => void }) {
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
   const [actions, setActions] = useState<QuickAction[]>([]);
@@ -47,7 +47,7 @@ export function QuickUpdate({ orderId, onApplied }: { orderId: string; onApplied
     if (!text.trim()) return;
     setBusy(true);
     setError(null);
-    const r = await fetch(`/api/crm/orders/${orderId}/quick-update`, {
+    const r = await fetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text }),
@@ -68,7 +68,7 @@ export function QuickUpdate({ orderId, onApplied }: { orderId: string; onApplied
     if (toApply.length === 0) return;
     setBusy(true);
     setError(null);
-    const r = await fetch(`/api/crm/orders/${orderId}/quick-update`, {
+    const r = await fetch(endpoint, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ actions: toApply }),

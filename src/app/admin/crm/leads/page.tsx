@@ -82,6 +82,19 @@ export default function LeadsPage() {
   const isSpamLike = (l: Lead) =>
     /продвижение|seo|разбор.*сайт|яндекс.*гугл/i.test(`${l.comment || ""} ${l.product_type}`);
 
+  // Архив уходит вниз списка, внутри групп — сначала свежие
+  const statusRank: Record<Lead["status"], number> = { new: 0, in_progress: 1, done: 2, archived: 3 };
+  const sortedLeads = [...leads].sort((a, b) => statusRank[a.status] - statusRank[b.status]);
+
+  const telegramLink = (l: Lead) => {
+    if (l.telegram) {
+      const handle = l.telegram.trim().replace(/^@/, "").replace(/^https?:\/\/t\.me\//i, "");
+      return `https://t.me/${handle}`;
+    }
+    const digits = l.phone.replace(/[^\d+]/g, "");
+    return digits ? `https://t.me/${digits}` : null;
+  };
+
   return (
     <div className="space-y-8">
       <div>
@@ -93,7 +106,7 @@ export default function LeadsPage() {
       </div>
 
       <ul className="divide-y divide-line border-t border-line">
-        {leads.map((l) => {
+        {sortedLeads.map((l) => {
           const isOpen = expanded === l.id;
           return (
             <li key={l.id} className="py-4">
@@ -126,6 +139,16 @@ export default function LeadsPage() {
                   {l.comment && <p className="label text-ink-soft">{l.comment}</p>}
 
                   <div className="flex flex-wrap items-center gap-3 pt-1">
+                    {telegramLink(l) && (
+                      <a
+                        href={telegramLink(l)!}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="pill label bg-tint text-ink hover:bg-line"
+                      >
+                        Написать в Telegram
+                      </a>
+                    )}
                     {l.converted_order_id ? (
                       <Link
                         href={`/admin/crm/orders/${l.converted_order_id}`}
