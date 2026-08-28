@@ -125,3 +125,14 @@ export function IconInbox({ className }: IconProps) {
     </svg>
   );
 }
+
+/** Канбан-колонки — проекты по стадиям */
+export function IconProjects({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 20 20" className={className} {...common}>
+      <rect x="2.5" y="3.5" width="4" height="13" rx="1" />
+      <rect x="8" y="3.5" width="4" height="8" rx="1" />
+      <rect x="13.5" y="3.5" width="4" height="10" rx="1" />
+    </svg>
+  );
+}

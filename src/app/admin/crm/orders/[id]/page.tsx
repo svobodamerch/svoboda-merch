@@ -7,7 +7,7 @@ import { allCatalogItems, findCatalogPrice } from "@/lib/priceCatalog";
 import { OrderCosts } from "./OrderCosts";
 import { OrderLegalEntity } from "./OrderLegalEntity";
 import { OrderDocuments } from "./OrderDocuments";
-import { OrderAttachments } from "./OrderAttachments";
+import { Attachments } from "@/components/crm/Attachments";
 import { ProjectEconomics } from "./ProjectEconomics";
 import { QuickUpdate } from "./QuickUpdate";
 import type { ProjectFinancials } from "@/lib/crm/finance";
@@ -285,7 +285,7 @@ export default function OrderDetailPage() {
 
       <OrderDocuments orderId={String(id)} contractorId={order.contractor_id} legalEntityId={order.legal_entity_id} />
 
-      <OrderAttachments orderId={String(id)} />
+      <Attachments endpoint={`/api/crm/orders/${id}/attachments`} />
 
       <OrderCosts orderId={String(id)} onChanged={loadOrder} />
 

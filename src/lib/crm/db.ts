@@ -707,6 +707,34 @@ function initSchema(db: Database.Database) {
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
     CREATE INDEX IF NOT EXISTS idx_order_attachments_order ON order_attachments(order_id);
+
+    -- Проект — идея/направление до того, как она стала сделкой с ценой и
+    -- контрагентом: «предложить мерч спа-баням», «Футурион на ВДНХ». Канбан
+    -- по стадиям, не по деньгам — деньги появляются, только когда проект
+    -- превращается в заказ (order).
+    CREATE TABLE IF NOT EXISTS projects (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT NOT NULL,
+      description TEXT,
+      stage TEXT NOT NULL DEFAULT 'idea',
+      order_id INTEGER REFERENCES orders(id),
+      created_by TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_projects_stage ON projects(stage);
+
+    CREATE TABLE IF NOT EXISTS project_attachments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      project_id INTEGER NOT NULL REFERENCES projects(id),
+      filename TEXT NOT NULL,
+      original_name TEXT NOT NULL,
+      mime_type TEXT NOT NULL,
+      size_bytes INTEGER NOT NULL,
+      created_by TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_project_attachments_project ON project_attachments(project_id);
   `);
 }
 
@@ -792,7 +820,7 @@ export type Payment = {
 
 export type ActivityEntry = {
   id: number;
-  entity_type: "order" | "contractor";
+  entity_type: "order" | "contractor" | "project";
   entity_id: number;
   event: string;
   message: string;
@@ -1366,6 +1394,108 @@ export function getOrderAttachmentById(id: number): OrderAttachment | undefined 
 export function deleteOrderAttachment(id: number): void {
   const db = getCrmDb();
   db.prepare(`DELETE FROM order_attachments WHERE id = ?`).run(id);
+}
+
+// ---------- Проекты (канбан идей — до того, как заказ) ----------
+
+export type ProjectStage = "idea" | "in_progress" | "proposed" | "done" | "archived";
+
+export type Project = {
+  id: number;
+  title: string;
+  description: string | null;
+  stage: ProjectStage;
+  order_id: number | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export function createProject(
+  input: { title: string; description?: string; stage?: ProjectStage },
+  actor?: string,
+): Project {
+  const db = getCrmDb();
+  const project = db
+    .prepare(
+      `INSERT INTO projects (title, description, stage, created_by) VALUES (?, ?, ?, ?) RETURNING *`,
+    )
+    .get(input.title, input.description || null, input.stage || "idea", actor || null) as Project;
+  logActivity("project", project.id, "created", `Создан проект «${project.title}»`, actor);
+  return project;
+}
+
+export function getProjects(): Project[] {
+  const db = getCrmDb();
+  return db.prepare(`SELECT * FROM projects ORDER BY updated_at DESC`).all() as Project[];
+}
+
+export function getProjectById(id: number): Project | undefined {
+  const db = getCrmDb();
+  return db.prepare(`SELECT * FROM projects WHERE id = ?`).get(id) as Project | undefined;
+}
+
+export function updateProject(
+  id: number,
+  patch: { title?: string; description?: string; stage?: ProjectStage },
+): Project | undefined {
+  const db = getCrmDb();
+  const current = getProjectById(id);
+  if (!current) return undefined;
+  return db
+    .prepare(
+      `UPDATE projects SET title = ?, description = ?, stage = ?, updated_at = datetime('now') WHERE id = ? RETURNING *`,
+    )
+    .get(
+      patch.title ?? current.title,
+      patch.description ?? current.description,
+      patch.stage ?? current.stage,
+      id,
+    ) as Project;
+}
+
+// ---------- Файлы к проекту (та же идея, что order_attachments) ----------
+
+export type ProjectAttachment = {
+  id: number;
+  project_id: number;
+  filename: string;
+  original_name: string;
+  mime_type: string;
+  size_bytes: number;
+  created_by: string | null;
+  created_at: string;
+};
+
+export function createProjectAttachment(
+  input: { project_id: number; filename: string; original_name: string; mime_type: string; size_bytes: number },
+  actor?: string,
+): ProjectAttachment {
+  const db = getCrmDb();
+  return db
+    .prepare(
+      `INSERT INTO project_attachments (project_id, filename, original_name, mime_type, size_bytes, created_by)
+       VALUES (?, ?, ?, ?, ?, ?)
+       RETURNING *`,
+    )
+    .get(input.project_id, input.filename, input.original_name, input.mime_type, input.size_bytes, actor || null) as ProjectAttachment;
+}
+
+export function getProjectAttachments(projectId: number): ProjectAttachment[] {
+  const db = getCrmDb();
+  return db
+    .prepare(`SELECT * FROM project_attachments WHERE project_id = ? ORDER BY created_at DESC`)
+    .all(projectId) as ProjectAttachment[];
+}
+
+export function getProjectAttachmentById(id: number): ProjectAttachment | undefined {
+  const db = getCrmDb();
+  return db.prepare(`SELECT * FROM project_attachments WHERE id = ?`).get(id) as ProjectAttachment | undefined;
+}
+
+export function deleteProjectAttachment(id: number): void {
+  const db = getCrmDb();
+  db.prepare(`DELETE FROM project_attachments WHERE id = ?`).run(id);
 }
 
 export function getOrders(status?: OrderStatus): Order[] {

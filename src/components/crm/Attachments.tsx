@@ -18,20 +18,20 @@ function size(bytes: number): string {
 
 const isImage = (mime: string) => mime.startsWith("image/");
 
-/** Брифы, сметы, референсы к сделке — файл как есть, без встраивания PDF целиком */
-export function OrderAttachments({ orderId }: { orderId: string }) {
+/** Брифы, сметы, референсы — файл как есть, без встраивания PDF целиком. Используется и заказами, и проектами. */
+export function Attachments({ endpoint }: { endpoint: string }) {
   const [items, setItems] = useState<Attachment[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const load = () => {
-    fetch(`/api/crm/orders/${orderId}/attachments`)
+    fetch(endpoint)
       .then((r) => r.json())
       .then((d) => setItems(d.attachments || []));
   };
 
-  useEffect(load, [orderId]);
+  useEffect(load, [endpoint]);
 
   const upload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
@@ -40,7 +40,7 @@ export function OrderAttachments({ orderId }: { orderId: string }) {
     for (const file of Array.from(files)) {
       const form = new FormData();
       form.append("file", file);
-      const r = await fetch(`/api/crm/orders/${orderId}/attachments`, { method: "POST", body: form });
+      const r = await fetch(endpoint, { method: "POST", body: form });
       if (!r.ok) {
         const d = await r.json().catch(() => ({}));
         setError(d.error || `Не удалось загрузить «${file.name}»`);
@@ -53,11 +53,11 @@ export function OrderAttachments({ orderId }: { orderId: string }) {
 
   const remove = async (id: number) => {
     if (!confirm("Удалить файл?")) return;
-    await fetch(`/api/crm/orders/${orderId}/attachments/${id}`, { method: "DELETE" });
+    await fetch(`${endpoint}/${id}`, { method: "DELETE" });
     load();
   };
 
-  const fileUrl = (id: number) => `/api/crm/orders/${orderId}/attachments/${id}`;
+  const fileUrl = (id: number) => `${endpoint}/${id}`;
 
   return (
     <div>
