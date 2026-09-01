@@ -1,10 +1,35 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
 import { TaskRow, type Task } from "./TaskRow";
 
 type Contractor = { id: number; name: string };
 type Order = { id: number; title: string };
+
+type Commitment = {
+  id: number;
+  title: string;
+  side: "we" | "they";
+  due_date: string | null;
+  contractor_name: string | null;
+  order_id: number | null;
+  order_title: string | null;
+};
+
+type Project = {
+  id: number;
+  title: string;
+  stage: "idea" | "in_progress" | "proposed" | "done" | "archived";
+};
+
+const stageLabel: Record<Project["stage"], string> = {
+  idea: "Идея",
+  in_progress: "В работе",
+  proposed: "Предложено клиенту",
+  done: "Готово",
+  archived: "Архив",
+};
 
 const field =
   "w-full rounded-xl border border-line bg-bg px-4 py-3 text-[13px] text-ink outline-none focus:border-accent";
@@ -13,6 +38,8 @@ export default function TasksPage() {
   const [tasks, setTasks] = useState<Task[] | null>(null);
   const [contractors, setContractors] = useState<Contractor[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [commitments, setCommitments] = useState<Commitment[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [form, setForm] = useState({
     title: "",
     description: "",
@@ -33,6 +60,12 @@ export default function TasksPage() {
     fetch("/api/crm/orders")
       .then((r) => r.json())
       .then((d) => setOrders(d.orders));
+    fetch("/api/crm/commitments")
+      .then((r) => r.json())
+      .then((d) => setCommitments(d.commitments || []));
+    fetch("/api/crm/projects")
+      .then((r) => r.json())
+      .then((d) => setProjects((d.projects || []).filter((p: Project) => p.stage !== "done" && p.stage !== "archived")));
   };
 
   useEffect(load, []);
@@ -118,8 +151,60 @@ export default function TasksPage() {
         </button>
       </form>
 
+      {projects.length > 0 && (
+        <div>
+          <p className="section-title mb-4">Проекты в работе · {projects.length}</p>
+          <ul className="divide-y divide-line border-t border-line">
+            {projects.map((p) => (
+              <li key={p.id}>
+                <Link
+                  href="/admin/crm/projects"
+                  className="flex items-center justify-between py-3 hover:opacity-70"
+                >
+                  <span className="label text-ink">{p.title}</span>
+                  <span className="label text-muted">{stageLabel[p.stage]}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {commitments.length > 0 && (
+        <div>
+          <p className="section-title mb-4">Договорённости · {commitments.length}</p>
+          <ul className="divide-y divide-line border-t border-line">
+            {commitments.map((c) => (
+              <li key={c.id} className="py-3">
+                <div className="flex items-center justify-between">
+                  <span className="label text-ink">
+                    {c.side === "we" ? "Мы должны: " : "Нам должны: "}
+                    {c.title}
+                  </span>
+                  {c.due_date && <span className="label text-muted">{c.due_date}</span>}
+                </div>
+                {(c.contractor_name || c.order_title) && (
+                  <p className="label text-muted mt-0.5">
+                    {c.order_id ? (
+                      <Link href={`/admin/crm/orders/${c.order_id}`} className="hover:text-ink">
+                        {c.order_title}
+                      </Link>
+                    ) : (
+                      c.contractor_name
+                    )}
+                  </p>
+                )}
+              </li>
+            ))}
+          </ul>
+          <Link href="/admin/crm/commitments" className="label text-muted hover:text-ink mt-2 inline-block">
+            Все обещания →
+          </Link>
+        </div>
+      )}
+
       <div>
-        <p className="section-title mb-4">Открытые · {open.length}</p>
+        <p className="section-title mb-4">Открытые задачи · {open.length}</p>
         <ul className="divide-y divide-line border-t border-line">
           {open.map((t) => (
             <TaskRow key={t.id} task={t} contractors={contractors} orders={orders} onChanged={load} />
