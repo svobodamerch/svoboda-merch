@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { Attachments } from "@/components/crm/Attachments";
+import { ProjectCosts } from "./ProjectCosts";
 
 type ProjectStage = "idea" | "in_progress" | "proposed" | "done" | "archived";
 
@@ -114,6 +115,7 @@ export default function ProjectsPage() {
                         {p.description && (
                           <p className="label text-ink-soft whitespace-pre-wrap">{p.description}</p>
                         )}
+                        <ProjectCosts projectId={p.id} />
                         <Attachments endpoint={`/api/crm/projects/${p.id}/attachments`} />
                         <div className="flex flex-wrap gap-2 border-t border-line pt-2">
                           {STAGES.filter((s) => s.key !== p.stage).map((s) => (

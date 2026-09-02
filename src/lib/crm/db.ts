@@ -724,6 +724,26 @@ function initSchema(db: Database.Database) {
     );
     CREATE INDEX IF NOT EXISTS idx_projects_stage ON projects(stage);
 
+    -- Траты по проекту до того, как он стал заказом — реальные покупки
+    -- «в надежде продать» (ткань, принты, расходники). Отдельно от
+    -- order_costs: там полноценный статус план/согласовано/оплачено под
+    -- конкретную сделку, здесь просто список «на что уже потрачено».
+    CREATE TABLE IF NOT EXISTS project_costs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      project_id INTEGER NOT NULL REFERENCES projects(id),
+      title TEXT NOT NULL,
+      contractor_id INTEGER REFERENCES contractors(id),
+      quantity REAL NOT NULL DEFAULT 1,
+      unit TEXT NOT NULL DEFAULT 'шт',
+      unit_cost_kopecks INTEGER NOT NULL DEFAULT 0,
+      amount_kopecks INTEGER NOT NULL DEFAULT 0,
+      payment_id INTEGER REFERENCES payments(id),
+      comment TEXT,
+      created_by TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_project_costs_project ON project_costs(project_id);
+
     CREATE TABLE IF NOT EXISTS project_attachments (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       project_id INTEGER NOT NULL REFERENCES projects(id),
@@ -1496,6 +1516,78 @@ export function getProjectAttachmentById(id: number): ProjectAttachment | undefi
 export function deleteProjectAttachment(id: number): void {
   const db = getCrmDb();
   db.prepare(`DELETE FROM project_attachments WHERE id = ?`).run(id);
+}
+
+// ---------- Траты по проекту ----------
+
+export type ProjectCost = {
+  id: number;
+  project_id: number;
+  title: string;
+  contractor_id: number | null;
+  quantity: number;
+  unit: string;
+  unit_cost_kopecks: number;
+  amount_kopecks: number;
+  payment_id: number | null;
+  comment: string | null;
+  created_by: string | null;
+  created_at: string;
+};
+
+export type ProjectCostWithContractor = ProjectCost & { contractor_name: string | null };
+
+export function createProjectCost(
+  input: {
+    project_id: number;
+    title: string;
+    contractor_id?: number;
+    quantity?: number;
+    unit?: string;
+    unit_cost_kopecks?: number;
+    amount_kopecks: number;
+    comment?: string;
+  },
+  actor?: string,
+): ProjectCost {
+  const db = getCrmDb();
+  const cost = db
+    .prepare(
+      `INSERT INTO project_costs (project_id, title, contractor_id, quantity, unit, unit_cost_kopecks, amount_kopecks, comment, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+       RETURNING *`,
+    )
+    .get(
+      input.project_id,
+      input.title,
+      input.contractor_id || null,
+      input.quantity ?? 1,
+      input.unit || "шт",
+      input.unit_cost_kopecks ?? 0,
+      input.amount_kopecks,
+      input.comment || null,
+      actor || null,
+    ) as ProjectCost;
+  logActivity("project", input.project_id, "cost", `Затрата: «${input.title}» — ${(input.amount_kopecks / 100).toLocaleString("ru-RU")} ₽`, actor);
+  return cost;
+}
+
+export function getProjectCosts(projectId: number): ProjectCostWithContractor[] {
+  const db = getCrmDb();
+  return db
+    .prepare(
+      `SELECT pc.*, c.name AS contractor_name
+       FROM project_costs pc
+       LEFT JOIN contractors c ON c.id = pc.contractor_id
+       WHERE pc.project_id = ?
+       ORDER BY pc.created_at DESC`,
+    )
+    .all(projectId) as ProjectCostWithContractor[];
+}
+
+export function deleteProjectCost(id: number): void {
+  const db = getCrmDb();
+  db.prepare(`DELETE FROM project_costs WHERE id = ?`).run(id);
 }
 
 export function getOrders(status?: OrderStatus): Order[] {
