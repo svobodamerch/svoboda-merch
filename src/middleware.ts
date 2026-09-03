@@ -47,7 +47,17 @@ export async function middleware(request: NextRequest) {
   const isProtectedApi =
     effectivePathname.startsWith("/api/crm") && !effectivePathname.startsWith("/api/crm/auth");
 
-  if (isProtectedPage || isProtectedApi) {
+  // Сервер-сервер доступ для контрол-центра (crm.lyalin.com.ru): общий секрет
+  // в заголовке вместо куки-сессии. Только для чтения /api/crm/* — страницы
+  // админки этим каналом не открываются.
+  const botSecret = process.env.BOT_API_SECRET;
+  const hasBotSecret =
+    isProtectedApi &&
+    request.method === "GET" &&
+    !!botSecret &&
+    request.headers.get("x-bot-secret") === botSecret;
+
+  if ((isProtectedPage || isProtectedApi) && !hasBotSecret) {
     const session = await verifySession(request.cookies.get(SESSION_COOKIE)?.value);
     if (!session) {
       if (isProtectedApi) {
