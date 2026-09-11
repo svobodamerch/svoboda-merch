@@ -1,5 +1,5 @@
 import { formatMoney } from "@/lib/crm/format";
-import type { OrderItem, ProposalTemplate } from "@/lib/crm/db";
+import type { OrderItem, ProposalBlock, ProposalTemplate } from "@/lib/crm/db";
 
 /**
  * Рендер документа КП — общий для публичной страницы /kp/[token]
@@ -15,12 +15,14 @@ export type ProposalDocumentData = {
   solution: string | null;
   terms: string | null;
   validUntil: string | null;
+  orderId: number;
   orderTitle: string;
   orderDescription: string | null;
   contractorName: string;
   contractorCompany: string | null;
   items: OrderItem[];
   totalKopecks: number;
+  blocks?: ProposalBlock[] | null;
 };
 
 function lineTotal(item: OrderItem): number {
@@ -83,11 +85,69 @@ function ItemsTable({ items, totalKopecks }: { items: OrderItem[]; totalKopecks:
   );
 }
 
-export function ProposalDocument({ data }: { data: ProposalDocumentData }) {
+function BlockRenderer({ block, data }: { block: ProposalBlock; data: ProposalDocumentData }) {
+  switch (block.type) {
+    case "cover":
+      return (
+        <header className="mb-10">
+          <p className="label text-accent mb-3">[СВОБОДА]* · коммерческое предложение</p>
+          <h1 className="display text-ink mb-3" style={{ fontSize: "clamp(1.8rem, 5vw, 2.6rem)" }}>
+            {block.title}
+          </h1>
+          {block.subtitle && <p className="label text-muted">{block.subtitle}</p>}
+          {data.validUntil && <p className="label text-muted mt-1">Действительно до {data.validUntil}</p>}
+        </header>
+      );
+    case "text":
+      return (
+        <section className="mb-10">
+          {block.heading && <p className="label text-accent mb-3">{block.heading}</p>}
+          <p className="text-ink-soft whitespace-pre-line" style={{ fontSize: "0.95rem", lineHeight: 1.75 }}>
+            {block.body}
+          </p>
+        </section>
+      );
+    case "image":
+      return (
+        <section className="mb-10">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={`/api/crm/orders/${data.orderId}/attachments/${block.attachmentId}`}
+            alt={block.caption || ""}
+            className="w-full rounded-2xl object-cover"
+          />
+          {block.caption && <p className="label text-muted mt-2">{block.caption}</p>}
+        </section>
+      );
+    case "price_table":
+      return (
+        <section className="mb-10">
+          <p className="label text-accent mb-4">Состав и стоимость</p>
+          {data.items.length > 0 ? (
+            <ItemsTable items={data.items} totalKopecks={data.totalKopecks} />
+          ) : (
+            <p className="label text-muted mb-10">Позиции пока не добавлены</p>
+          )}
+        </section>
+      );
+    case "terms":
+      return (
+        <section className="mb-10">
+          <p className="label text-accent mb-3">Условия</p>
+          <p className="text-ink-soft whitespace-pre-line" style={{ fontSize: "0.9rem", lineHeight: 1.75 }}>
+            {block.body}
+          </p>
+        </section>
+      );
+  }
+}
+
+/** Легаси-раскладка для КП, созданных до конструктора блоков (intro/solution/terms) */
+function LegacyLayout({ data }: { data: ProposalDocumentData }) {
   const isShort = data.template === "short";
 
   return (
-    <article className="mx-auto max-w-[760px] px-4 py-10 md:px-8 md:py-16">
+    <>
       <header className="mb-10">
         <p className="label text-accent mb-3">[СВОБОДА]* · коммерческое предложение</p>
         <h1 className="display text-ink mb-3" style={{ fontSize: "clamp(1.8rem, 5vw, 2.6rem)" }}>
@@ -97,9 +157,7 @@ export function ProposalDocument({ data }: { data: ProposalDocumentData }) {
           Для {data.contractorName}
           {data.contractorCompany ? ` · ${data.contractorCompany}` : ""}
         </p>
-        {data.validUntil && (
-          <p className="label text-muted mt-1">Действительно до {data.validUntil}</p>
-        )}
+        {data.validUntil && <p className="label text-muted mt-1">Действительно до {data.validUntil}</p>}
       </header>
 
       {!isShort && data.intro && (
@@ -142,6 +200,20 @@ export function ProposalDocument({ data }: { data: ProposalDocumentData }) {
             {data.terms}
           </p>
         </section>
+      )}
+    </>
+  );
+}
+
+export function ProposalDocument({ data }: { data: ProposalDocumentData }) {
+  const blocks = data.blocks;
+
+  return (
+    <article className="mx-auto max-w-[760px] px-4 py-10 md:px-8 md:py-16">
+      {blocks && blocks.length > 0 ? (
+        blocks.map((block) => <BlockRenderer key={block.id} block={block} data={data} />)
+      ) : (
+        <LegacyLayout data={data} />
       )}
     </article>
   );

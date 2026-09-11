@@ -28,6 +28,7 @@ export function getCrmDb(): Database.Database {
   ensureCashEventColumns(db);
   ensureBankAccountBalanceColumns(db);
   ensureContractorOpeningBalanceColumns(db);
+  ensureProposalBlocksColumn(db);
   db.exec("CREATE INDEX IF NOT EXISTS idx_payments_category ON payments(category_id)");
   db.exec("CREATE INDEX IF NOT EXISTS idx_order_costs_review ON order_costs(needs_review)");
   // Индексы по колонкам из ensure-миграций — только после них, иначе на уже
@@ -93,6 +94,12 @@ function ensureContractorServiceProductColumn(db: Database.Database) {
 function ensureOrderNotesColumn(db: Database.Database) {
   const cols = (db.prepare("PRAGMA table_info(orders)").all() as { name: string }[]).map((c) => c.name);
   if (!cols.includes("notes")) db.exec("ALTER TABLE orders ADD COLUMN notes TEXT");
+}
+
+/** Конструктор КП из блоков появился позже — на существующих базах поля intro/solution/terms остаются, blocks добавляем рядом */
+function ensureProposalBlocksColumn(db: Database.Database) {
+  const cols = (db.prepare("PRAGMA table_info(proposals)").all() as { name: string }[]).map((c) => c.name);
+  if (!cols.includes("blocks")) db.exec("ALTER TABLE proposals ADD COLUMN blocks TEXT");
 }
 
 /** Юрреквизиты и договор появились позже contractors — добавляем на уже существующих базах */
@@ -488,7 +495,8 @@ function initSchema(db: Database.Database) {
       updated_at TEXT NOT NULL DEFAULT (datetime('now')),
       sent_at TEXT,
       viewed_at TEXT,
-      accepted_at TEXT
+      accepted_at TEXT,
+      blocks TEXT
     );
     CREATE INDEX IF NOT EXISTS idx_proposals_token ON proposals(token);
     CREATE INDEX IF NOT EXISTS idx_proposals_order ON proposals(order_id);
@@ -2960,6 +2968,18 @@ export function getOrderEconomics(orderId: number): OrderEconomics {
 export type ProposalTemplate = "classic" | "short";
 export type ProposalStatus = "draft" | "sent" | "viewed" | "accepted" | "needs_revision";
 
+/**
+ * Конструктор КП — упорядоченный список блоков вместо жёстких полей.
+ * "price_table" ничего не хранит сам — рендерится из order_items заказа,
+ * чтобы таблица цен никогда не расходилась с реальными позициями сделки.
+ */
+export type ProposalBlock =
+  | { id: string; type: "cover"; title: string; subtitle?: string }
+  | { id: string; type: "text"; heading?: string; body: string }
+  | { id: string; type: "image"; attachmentId: number; caption?: string }
+  | { id: string; type: "price_table" }
+  | { id: string; type: "terms"; body: string };
+
 export type Proposal = {
   id: number;
   order_id: number;
@@ -2976,6 +2996,7 @@ export type Proposal = {
   sent_at: string | null;
   viewed_at: string | null;
   accepted_at: string | null;
+  blocks: string | null;
 };
 
 export type ProposalInput = {
@@ -2984,6 +3005,7 @@ export type ProposalInput = {
   solution?: string;
   terms?: string;
   valid_until?: string;
+  blocks?: ProposalBlock[];
 };
 
 function generateToken(): string {
@@ -3032,8 +3054,8 @@ export function createProposal(orderId: number, input: ProposalInput, actor?: st
   const db = getCrmDb();
   const proposal = db
     .prepare(
-      `INSERT INTO proposals (order_id, token, template, intro, solution, terms, valid_until, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `INSERT INTO proposals (order_id, token, template, intro, solution, terms, valid_until, created_by, blocks)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
        RETURNING *`,
     )
     .get(
@@ -3045,6 +3067,7 @@ export function createProposal(orderId: number, input: ProposalInput, actor?: st
       input.terms || null,
       input.valid_until || null,
       actor || null,
+      input.blocks ? JSON.stringify(input.blocks) : null,
     ) as Proposal;
 
   logActivity("order", orderId, "proposal_created", "Создано коммерческое предложение", actor);
@@ -3057,7 +3080,7 @@ export function updateProposal(id: number, input: ProposalInput): Proposal | und
   if (!current) return undefined;
 
   db.prepare(
-    `UPDATE proposals SET template = ?, intro = ?, solution = ?, terms = ?, valid_until = ?, updated_at = datetime('now')
+    `UPDATE proposals SET template = ?, intro = ?, solution = ?, terms = ?, valid_until = ?, blocks = ?, updated_at = datetime('now')
      WHERE id = ?`,
   ).run(
     input.template ?? current.template,
@@ -3065,9 +3088,20 @@ export function updateProposal(id: number, input: ProposalInput): Proposal | und
     input.solution ?? current.solution,
     input.terms ?? current.terms,
     input.valid_until ?? current.valid_until,
+    input.blocks ? JSON.stringify(input.blocks) : current.blocks,
     id,
   );
   return getProposalById(id);
+}
+
+export function getProposalBlocks(proposal: Proposal): ProposalBlock[] | null {
+  if (!proposal.blocks) return null;
+  try {
+    const parsed = JSON.parse(proposal.blocks);
+    return Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
 }
 
 export function logProposalEvent(proposalId: number, event: string, meta?: string): void {

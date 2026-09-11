@@ -31,6 +31,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     solution: body.solution,
     terms: body.terms,
     valid_until: body.validUntil,
+    blocks: Array.isArray(body.blocks) ? body.blocks : undefined,
   });
 
   return NextResponse.json({ proposal });
