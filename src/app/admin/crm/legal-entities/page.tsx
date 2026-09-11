@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
 
 type BankAccount = {
@@ -104,7 +105,9 @@ export default function LegalEntitiesPage() {
           const doneDocs = e.documents.filter((d) => d.status === "done");
           return (
             <div key={e.id} className="rounded-2xl bg-surface p-6">
-              <p className="label-lg text-ink">{e.short_name}</p>
+              <Link href={`/admin/crm/legal-entities/${e.id}`} className="label-lg text-ink hover:text-accent">
+                {e.short_name} →
+              </Link>
               <p className="label text-accent mt-1">{regimeLabel[e.tax_regime] || e.tax_regime} · {e.tax_rate}%</p>
 
               <dl className="mt-4 space-y-1.5">

@@ -2011,6 +2011,53 @@ export type LegalEntityDocument = {
   done_at: string | null;
 };
 
+export type LegalEntityActivity = {
+  payments: {
+    id: number;
+    direction: PaymentDirection;
+    amount_kopecks: number;
+    comment: string | null;
+    paid_at: string;
+    kind: CashKind;
+    contractor_name: string | null;
+    order_title: string | null;
+  }[];
+  orders: { id: number; title: string; amount_kopecks: number; status: OrderStatus; contractor_name: string }[];
+  totalInKopecks: number;
+  totalOutKopecks: number;
+};
+
+/** Всё, что прошло через это юрлицо — для карточки: сколько получено/оплачено и на каких сделках */
+export function getLegalEntityActivity(legalEntityId: number): LegalEntityActivity {
+  const db = getCrmDb();
+  const payments = db
+    .prepare(
+      `SELECT p.id, p.direction, p.amount_kopecks, p.comment, p.paid_at, p.kind,
+              c.name AS contractor_name, o.title AS order_title
+       FROM payments p
+       LEFT JOIN contractors c ON c.id = p.contractor_id
+       LEFT JOIN orders o ON o.id = p.order_id
+       WHERE p.legal_entity_id = ?
+       ORDER BY p.paid_at DESC`,
+    )
+    .all(legalEntityId) as LegalEntityActivity["payments"];
+
+  const orders = db
+    .prepare(
+      `SELECT o.id, o.title, o.amount_kopecks, o.status, c.name AS contractor_name
+       FROM orders o
+       JOIN contractors c ON c.id = o.contractor_id
+       WHERE o.legal_entity_id = ?
+       ORDER BY o.created_at DESC`,
+    )
+    .all(legalEntityId) as LegalEntityActivity["orders"];
+
+  const totalInKopecks = payments.filter((p) => p.direction === "in").reduce((s, p) => s + p.amount_kopecks, 0);
+  const totalOutKopecks = payments.filter((p) => p.direction === "out").reduce((s, p) => s + p.amount_kopecks, 0);
+
+  return { payments, orders, totalInKopecks, totalOutKopecks };
+}
+
 export function getLegalEntityDocuments(legalEntityId: number): LegalEntityDocument[] {
   const db = getCrmDb();
   return db
