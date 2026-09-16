@@ -26,6 +26,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       unit: String(raw.unit || "шт").trim() || "шт",
       unit_price_kopecks: toKopecks((raw.unitPrice as string | number) ?? 0),
       discount_percent: Math.min(100, Math.max(0, Number(raw.discountPercent) || 0)),
+      lead_time: String(raw.leadTime || "").trim() || undefined,
     }))
     .filter((item: OrderItemInput) => item.title);
 

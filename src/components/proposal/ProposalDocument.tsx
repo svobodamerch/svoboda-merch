@@ -34,14 +34,15 @@ function ItemsTable({ items, totalKopecks }: { items: OrderItem[]; totalKopecks:
   return (
     <div className="mb-10">
       <div className="hidden border-t border-line sm:block">
-        <div className="grid grid-cols-[1fr_auto_auto_auto] gap-4 border-b border-line py-3">
+        <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-4 border-b border-line py-3">
           <span className="label text-muted">Позиция</span>
           <span className="label text-muted">Кол-во</span>
           <span className="label text-muted">Цена</span>
+          <span className="label text-muted">Срок</span>
           <span className="label text-muted text-right">Сумма</span>
         </div>
         {items.map((item) => (
-          <div key={item.id} className="grid grid-cols-[1fr_auto_auto_auto] gap-4 border-b border-line py-4">
+          <div key={item.id} className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-4 border-b border-line py-4">
             <div>
               <p className="label-lg text-ink">{item.title}</p>
               {item.description && <p className="label text-muted mt-1">{item.description}</p>}
@@ -53,6 +54,7 @@ function ItemsTable({ items, totalKopecks }: { items: OrderItem[]; totalKopecks:
               {item.quantity} {item.unit}
             </span>
             <span className="label text-ink-soft whitespace-nowrap">{formatMoney(item.unit_price_kopecks)}</span>
+            <span className="label text-ink-soft whitespace-nowrap">{item.lead_time || "—"}</span>
             <span className="label-lg text-ink whitespace-nowrap text-right">{formatMoney(lineTotal(item))}</span>
           </div>
         ))}
@@ -71,6 +73,7 @@ function ItemsTable({ items, totalKopecks }: { items: OrderItem[]; totalKopecks:
               </span>
               <span className="label-lg text-ink">{formatMoney(lineTotal(item))}</span>
             </div>
+            {item.lead_time && <p className="label text-muted mt-1">Срок: {item.lead_time}</p>}
           </div>
         ))}
       </div>

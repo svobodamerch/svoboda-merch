@@ -63,9 +63,10 @@ function priceTable(items: OrderItem[], totalKopecks: number): (Table | Paragrap
   const header = new TableRow({
     tableHeader: true,
     children: [
-      cell("Позиция", { width: 4600, bold: true, shading: INK, header: true }),
-      cell("Кол-во", { width: 1600, bold: true, shading: INK, header: true, align: AlignmentType.CENTER }),
-      cell("Цена", { width: 1600, bold: true, shading: INK, header: true, align: AlignmentType.RIGHT }),
+      cell("Позиция", { width: 3800, bold: true, shading: INK, header: true }),
+      cell("Кол-во", { width: 1400, bold: true, shading: INK, header: true, align: AlignmentType.CENTER }),
+      cell("Цена", { width: 1400, bold: true, shading: INK, header: true, align: AlignmentType.RIGHT }),
+      cell("Срок", { width: 1200, bold: true, shading: INK, header: true, align: AlignmentType.CENTER }),
       cell("Сумма", { width: 1800, bold: true, shading: INK, header: true, align: AlignmentType.RIGHT }),
     ],
   });
@@ -74,16 +75,17 @@ function priceTable(items: OrderItem[], totalKopecks: number): (Table | Paragrap
     (item, i) =>
       new TableRow({
         children: [
-          cell(item.title, { width: 4600, shading: i % 2 ? SURFACE : "FFFFFF" }),
-          cell(`${item.quantity} ${item.unit}`, { width: 1600, align: AlignmentType.CENTER, shading: i % 2 ? SURFACE : "FFFFFF" }),
-          cell(formatMoney(item.unit_price_kopecks), { width: 1600, align: AlignmentType.RIGHT, shading: i % 2 ? SURFACE : "FFFFFF" }),
+          cell(item.title, { width: 3800, shading: i % 2 ? SURFACE : "FFFFFF" }),
+          cell(`${item.quantity} ${item.unit}`, { width: 1400, align: AlignmentType.CENTER, shading: i % 2 ? SURFACE : "FFFFFF" }),
+          cell(formatMoney(item.unit_price_kopecks), { width: 1400, align: AlignmentType.RIGHT, shading: i % 2 ? SURFACE : "FFFFFF" }),
+          cell(item.lead_time || "—", { width: 1200, align: AlignmentType.CENTER, shading: i % 2 ? SURFACE : "FFFFFF" }),
           cell(formatMoney(lineTotal(item)), { width: 1800, bold: true, color: TERRACOTTA, align: AlignmentType.RIGHT, shading: i % 2 ? SURFACE : "FFFFFF" }),
         ],
       }),
   );
 
   return [
-    new Table({ width: { size: 9600, type: WidthType.DXA }, columnWidths: [4600, 1600, 1600, 1800], rows: [header, ...rows] }),
+    new Table({ width: { size: 9600, type: WidthType.DXA }, columnWidths: [3800, 1400, 1400, 1200, 1800], rows: [header, ...rows] }),
     new Paragraph({ spacing: { before: 200 }, alignment: AlignmentType.RIGHT, children: [
       new TextRun({ text: "Итого: ", size: 22, color: MUTED }),
       new TextRun({ text: formatMoney(totalKopecks), bold: true, size: 26, color: TERRACOTTA }),

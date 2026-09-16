@@ -33,6 +33,7 @@ type OrderItem = {
   unit: string;
   unit_price_kopecks: number;
   discount_percent: number;
+  lead_time: string | null;
 };
 
 type Detail = {
@@ -48,9 +49,10 @@ type ItemRow = {
   unit: string;
   unitPrice: string;
   discountPercent: string;
+  leadTime: string;
 };
 
-const emptyRow = (): ItemRow => ({ title: "", quantity: "1", unit: "шт", unitPrice: "", discountPercent: "0" });
+const emptyRow = (): ItemRow => ({ title: "", quantity: "1", unit: "шт", unitPrice: "", discountPercent: "0", leadTime: "" });
 
 function rowTotal(row: ItemRow): number {
   const qty = Number(row.quantity) || 0;
@@ -101,6 +103,7 @@ export default function OrderDetailPage() {
                 unit: it.unit,
                 unitPrice: String(it.unit_price_kopecks / 100),
                 discountPercent: String(it.discount_percent),
+                leadTime: it.lead_time || "",
               }))
             : [emptyRow()],
         );
@@ -142,6 +145,7 @@ export default function OrderDetailPage() {
           unit: r.unit,
           unitPrice: r.unitPrice,
           discountPercent: Number(r.discountPercent) || 0,
+          leadTime: r.leadTime,
         })),
       }),
     });
@@ -203,7 +207,7 @@ export default function OrderDetailPage() {
 
         <div className="space-y-2">
           {rows.map((row, i) => (
-            <div key={i} className="grid grid-cols-2 gap-2 rounded-xl bg-surface p-3 sm:grid-cols-[1fr_80px_70px_100px_80px_auto]">
+            <div key={i} className="grid grid-cols-2 gap-2 rounded-xl bg-surface p-3 sm:grid-cols-[1fr_80px_70px_100px_80px_110px_auto]">
               <input
                 className={field}
                 list="catalog-items"
@@ -240,6 +244,12 @@ export default function OrderDetailPage() {
                 inputMode="numeric"
                 value={row.discountPercent}
                 onChange={(e) => updateRow(i, { discountPercent: e.target.value })}
+              />
+              <input
+                className={field}
+                placeholder="Срок"
+                value={row.leadTime}
+                onChange={(e) => updateRow(i, { leadTime: e.target.value })}
               />
               <button
                 type="button"

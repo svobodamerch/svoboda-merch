@@ -29,6 +29,7 @@ export function getCrmDb(): Database.Database {
   ensureBankAccountBalanceColumns(db);
   ensureContractorOpeningBalanceColumns(db);
   ensureProposalBlocksColumn(db);
+  ensureOrderItemLeadTimeColumn(db);
   db.exec("CREATE INDEX IF NOT EXISTS idx_payments_category ON payments(category_id)");
   db.exec("CREATE INDEX IF NOT EXISTS idx_order_costs_review ON order_costs(needs_review)");
   // Индексы по колонкам из ensure-миграций — только после них, иначе на уже
@@ -100,6 +101,12 @@ function ensureOrderNotesColumn(db: Database.Database) {
 function ensureProposalBlocksColumn(db: Database.Database) {
   const cols = (db.prepare("PRAGMA table_info(proposals)").all() as { name: string }[]).map((c) => c.name);
   if (!cols.includes("blocks")) db.exec("ALTER TABLE proposals ADD COLUMN blocks TEXT");
+}
+
+/** Срок изготовления по конкретной позиции — редактируется в таблице заказа, попадает в экспорт КП */
+function ensureOrderItemLeadTimeColumn(db: Database.Database) {
+  const cols = (db.prepare("PRAGMA table_info(order_items)").all() as { name: string }[]).map((c) => c.name);
+  if (!cols.includes("lead_time")) db.exec("ALTER TABLE order_items ADD COLUMN lead_time TEXT");
 }
 
 /** Юрреквизиты и договор появились позже contractors — добавляем на уже существующих базах */
@@ -363,6 +370,7 @@ function initSchema(db: Database.Database) {
       unit TEXT NOT NULL DEFAULT 'шт',
       unit_price_kopecks INTEGER NOT NULL DEFAULT 0,
       discount_percent REAL NOT NULL DEFAULT 0,
+      lead_time TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
     CREATE INDEX IF NOT EXISTS idx_order_items_order ON order_items(order_id);
@@ -1898,6 +1906,7 @@ export type OrderItem = {
   unit: string;
   unit_price_kopecks: number;
   discount_percent: number;
+  lead_time: string | null;
   created_at: string;
 };
 
@@ -1908,6 +1917,7 @@ export type OrderItemInput = {
   unit?: string;
   unit_price_kopecks: number;
   discount_percent?: number;
+  lead_time?: string;
 };
 
 export function getOrderItems(orderId: number): OrderItem[] {
@@ -1933,8 +1943,8 @@ export function replaceOrderItems(orderId: number, items: OrderItemInput[], acto
     db.prepare(`DELETE FROM order_items WHERE order_id = ?`).run(orderId);
 
     const insert = db.prepare(
-      `INSERT INTO order_items (order_id, position, title, description, quantity, unit, unit_price_kopecks, discount_percent)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO order_items (order_id, position, title, description, quantity, unit, unit_price_kopecks, discount_percent, lead_time)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     );
     rows.forEach((row, i) => {
       insert.run(
@@ -1946,6 +1956,7 @@ export function replaceOrderItems(orderId: number, items: OrderItemInput[], acto
         row.unit || "шт",
         row.unit_price_kopecks,
         row.discount_percent || 0,
+        row.lead_time || null,
       );
     });
 
