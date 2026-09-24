@@ -23,6 +23,11 @@ const actionLabel = (a: QuickAction): string => {
       .join(" · ");
   }
   if (a.type === "task") return `Задача: ${a.title}`;
+  if (a.type === "cost")
+    return `Расход: ${a.title} — ${(a.amount / 100).toLocaleString("ru-RU")} ₽${a.itemHint ? ` (позиция: ${a.itemHint})` : ""}`;
+  if (a.type === "experience") return `В опыт: ${a.text}`;
+  if (a.type === "contact")
+    return `Контакт: ${[a.name, a.role, a.phone, a.telegram, a.email].filter(Boolean).join(" · ")}`;
   return `Заметка: ${a.text}`;
 };
 

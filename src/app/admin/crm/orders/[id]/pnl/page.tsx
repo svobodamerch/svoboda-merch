@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
+import { QuickUpdate } from "../QuickUpdate";
 
 type CostLine = { id: number; title: string; amountKopecks: number; status: string };
 type Position = {
@@ -94,6 +95,8 @@ export default function OrderPnlPage() {
           {data.legalEntity ? `юрлицо: ${data.legalEntity.name}` : "юрлицо не выбрано — налог не посчитан"}
         </p>
       </div>
+
+      <QuickUpdate endpoint={`/api/crm/orders/${id}/quick-update`} onApplied={load} />
 
       <div className="grid gap-3 sm:grid-cols-4">
         <Tile label="Выручка по договорам" value={money(t.revenueKopecks)} sub={`получено ${money(t.receivedKopecks)}`} />

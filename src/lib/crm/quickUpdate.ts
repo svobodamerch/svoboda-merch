@@ -1,4 +1,13 @@
-import { createPayment, createTask, getLegalEntities, getOrderById, logActivity } from "./db";
+import {
+  createContractorContact,
+  createOrderCost,
+  createPayment,
+  createTask,
+  getLegalEntities,
+  getOrderById,
+  getOrderItems,
+  logActivity,
+} from "./db";
 import { getProjectFinancials } from "./finance";
 import { getContractorBalanceDetailed } from "./reconciliation";
 
@@ -24,7 +33,12 @@ export type QuickAction =
       comment: string;
     }
   | { type: "task"; title: string }
-  | { type: "note"; text: string };
+  | { type: "note"; text: string }
+  /** Расход по сделке; itemHint — на какую позицию похоже (подбирается при применении) */
+  | { type: "cost"; title: string; amount: number; itemHint: string | null }
+  /** Урок/вывод на будущее: что сработало, что нет, на что смотреть в следующий раз */
+  | { type: "experience"; text: string }
+  | { type: "contact"; name: string; role: string | null; phone: string | null; telegram: string | null; email: string | null };
 
 export type QuickUpdateResult = {
   actions: QuickAction[];
@@ -38,7 +52,7 @@ const SYSTEM_PROMPT = `Ты разбираешь короткое голосов
 
 Верни JSON: {"actions": [...], "unparsed": "остаток текста, который не удалось разобрать, или null"}
 
-Каждый элемент actions — один из трёх типов:
+Каждый элемент actions — один из шести типов:
 
 1. Платёж:
 {"type": "payment", "direction": "in"|"out", "amount": число_в_рублях или "full", "legal_entity_name": "название юрлица или null", "comment": "коротко"}
@@ -52,6 +66,16 @@ const SYSTEM_PROMPT = `Ты разбираешь короткое голосов
 
 3. Заметка — то, что уже произошло и не относится к деньгам или будущим делам:
 {"type": "note", "text": "что произошло"}
+
+4. Расход по сделке — мы потратились на производство, доставку, макет, закупку и т.п. (не платёж клиенту):
+{"type": "cost", "title": "на что", "amount": число_в_рублях, "item_hint": "к какой позиции заказа относится (слово из названия) или null"}
+Если расход просто оплата подрядчику без привязки к товару — всё равно cost.
+
+5. Опыт — вывод, урок, наблюдение на будущее («подрядчик срывает сроки», «ткань садится после стирки»):
+{"type": "experience", "text": "суть вывода"}
+
+6. Контакт — упомянут человек с контактными данными или ролью:
+{"type": "contact", "name": "Имя", "role": "роль или null", "phone": "...или null", "telegram": "@... или null", "email": "...или null"}
 
 Если в тексте есть куски не про сделку вообще (случайные слова, обрывки) — верни их в unparsed,
 не пытайся притянуть к action силой.
@@ -141,6 +165,28 @@ export async function parseQuickUpdate(text: string): Promise<QuickUpdateResult>
       });
     } else if (item.type === "task" && typeof item.title === "string" && item.title.trim()) {
       actions.push({ type: "task", title: item.title.trim() });
+    } else if (item.type === "cost") {
+      const amount = Math.round(Number(item.amount) * 100);
+      if (typeof item.title === "string" && item.title.trim() && Number.isFinite(amount) && amount > 0) {
+        actions.push({
+          type: "cost",
+          title: item.title.trim(),
+          amount,
+          itemHint: typeof item.item_hint === "string" && item.item_hint.trim() ? item.item_hint.trim() : null,
+        });
+      }
+    } else if (item.type === "experience" && typeof item.text === "string" && item.text.trim()) {
+      actions.push({ type: "experience", text: item.text.trim() });
+    } else if (item.type === "contact" && typeof item.name === "string" && item.name.trim()) {
+      const str = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : null);
+      actions.push({
+        type: "contact",
+        name: item.name.trim(),
+        role: str(item.role),
+        phone: str(item.phone),
+        telegram: str(item.telegram),
+        email: str(item.email),
+      });
     } else if (item.type === "note" && typeof item.text === "string" && item.text.trim()) {
       actions.push({ type: "note", text: item.text.trim() });
     }
@@ -199,6 +245,32 @@ export function applyQuickActions(target: ApplyTarget, actions: QuickAction[], a
         { title: action.title, order_id: orderId, contractor_id: contractorId ?? undefined, source: "quick_update" },
         actor,
       );
+    } else if (action.type === "cost") {
+      if (orderId === undefined) continue;
+      // позицию подбираем по общим словам подсказки и названия; не нашли — общий расход сделки
+      const hintWords = significantWords(action.itemHint || "");
+      const item = hintWords.length
+        ? getOrderItems(orderId).find((it) => {
+            const words = significantWords(it.title);
+            return hintWords.some((h) => words.some((w) => w.startsWith(h.slice(0, 5)) || h.startsWith(w.slice(0, 5))));
+          })
+        : undefined;
+      createOrderCost(
+        { order_id: orderId, order_item_id: item?.id, title: action.title, amount_kopecks: action.amount, status: "planned", comment: "Быстрое обновление" },
+        actor,
+      );
+    } else if (action.type === "experience") {
+      if (entityType && entityId !== null) logActivity(entityType, entityId, "experience", action.text, actor);
+    } else if (action.type === "contact") {
+      if (contractorId !== null) {
+        createContractorContact(contractorId, {
+          name: action.name,
+          role: action.role ?? undefined,
+          phone: action.phone ?? undefined,
+          telegram: action.telegram ?? undefined,
+          email: action.email ?? undefined,
+        });
+      }
     } else if (action.type === "note") {
       if (entityType && entityId !== null) {
         logActivity(entityType, entityId, "note", action.text, actor);
