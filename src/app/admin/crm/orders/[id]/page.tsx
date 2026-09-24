@@ -194,6 +194,9 @@ export default function OrderDetailPage() {
           <Link href={`/admin/crm/orders/${order.id}/proposal`} className="label text-accent hover:underline">
             Коммерческое предложение →
           </Link>
+          <Link href={`/admin/crm/orders/${order.id}/pnl`} className="label text-accent hover:underline">
+            Расклад и прибыль →
+          </Link>
         </div>
         <div className="mt-3">
           <QuickUpdate endpoint={`/api/crm/orders/${id}/quick-update`} onApplied={loadOrder} />
