@@ -375,6 +375,23 @@ function initSchema(db: Database.Database) {
     );
     CREATE INDEX IF NOT EXISTS idx_order_items_order ON order_items(order_id);
 
+    /* Отправки по сделке: кому, куда, что в посылке, кем и в каком статусе */
+    CREATE TABLE IF NOT EXISTS order_shipments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      order_id INTEGER NOT NULL REFERENCES orders(id),
+      city TEXT NOT NULL,
+      recipient TEXT,
+      address TEXT,
+      phone TEXT,
+      contents TEXT,
+      carrier TEXT,
+      sender TEXT,
+      tracking TEXT,
+      status TEXT NOT NULL DEFAULT 'waiting',
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_order_shipments_order ON order_shipments(order_id);
+
     /*
      * Юрлица: две ИП с разными налоговыми режимами. От юрлица зависят
      * реквизиты в документе, своя нумерация и формула налога.
@@ -3422,4 +3439,59 @@ export function createUser(username: string, passwordHash: string, name: string)
   return db
     .prepare(`INSERT INTO crm_users (username, password_hash, name) VALUES (?, ?, ?) RETURNING *`)
     .get(username, passwordHash, name) as CrmUser;
+}
+
+
+export type OrderShipment = {
+  id: number;
+  order_id: number;
+  city: string;
+  recipient: string | null;
+  address: string | null;
+  phone: string | null;
+  contents: string | null;
+  carrier: string | null;
+  sender: string | null;
+  tracking: string | null;
+  status: "waiting" | "packing" | "shipped" | "delivered";
+  created_at: string;
+};
+
+export function getOrderShipments(orderId: number): OrderShipment[] {
+  return getCrmDb().prepare(`SELECT * FROM order_shipments WHERE order_id = ? ORDER BY id`).all(orderId) as OrderShipment[];
+}
+
+const SHIPMENT_FIELDS = ["city", "recipient", "address", "phone", "contents", "carrier", "sender", "tracking", "status"] as const;
+
+export function createOrderShipment(orderId: number, input: Partial<Record<(typeof SHIPMENT_FIELDS)[number], string>>): OrderShipment {
+  const db = getCrmDb();
+  return db
+    .prepare(
+      `INSERT INTO order_shipments (order_id, city, recipient, address, phone, contents, carrier, sender, tracking, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
+    )
+    .get(
+      orderId,
+      input.city || "—",
+      input.recipient || null,
+      input.address || null,
+      input.phone || null,
+      input.contents || null,
+      input.carrier || null,
+      input.sender || null,
+      input.tracking || null,
+      input.status || "waiting",
+    ) as OrderShipment;
+}
+
+export function updateOrderShipment(id: number, input: Partial<Record<(typeof SHIPMENT_FIELDS)[number], string>>): void {
+  const keys = SHIPMENT_FIELDS.filter((k) => k in input);
+  if (keys.length === 0) return;
+  getCrmDb()
+    .prepare(`UPDATE order_shipments SET ${keys.map((k) => `${k} = ?`).join(", ")} WHERE id = ?`)
+    .run(...keys.map((k) => input[k] || null), id);
+}
+
+export function deleteOrderShipment(id: number): void {
+  getCrmDb().prepare(`DELETE FROM order_shipments WHERE id = ?`).run(id);
 }

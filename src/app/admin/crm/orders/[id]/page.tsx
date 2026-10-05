@@ -10,6 +10,7 @@ import { OrderDocuments } from "./OrderDocuments";
 import { Attachments } from "@/components/crm/Attachments";
 import { ProjectEconomics } from "./ProjectEconomics";
 import { QuickUpdate } from "./QuickUpdate";
+import { Shipments } from "./Shipments";
 import type { ProjectFinancials } from "@/lib/crm/finance";
 
 type Order = {
@@ -297,6 +298,8 @@ export default function OrderDetailPage() {
       <OrderLegalEntity orderId={String(id)} legalEntityId={order.legal_entity_id} onChanged={loadOrder} />
 
       <OrderDocuments orderId={String(id)} contractorId={order.contractor_id} legalEntityId={order.legal_entity_id} />
+
+      <Shipments orderId={String(id)} />
 
       <Attachments endpoint={`/api/crm/orders/${id}/attachments`} />
 
