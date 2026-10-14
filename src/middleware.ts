@@ -53,7 +53,7 @@ export async function middleware(request: NextRequest) {
   const botSecret = process.env.BOT_API_SECRET;
   const hasBotSecret =
     isProtectedApi &&
-    request.method === "GET" &&
+    (request.method === "GET" || (request.method === "POST" && effectivePathname === "/api/crm/tg-inbox/ingest")) &&
     !!botSecret &&
     request.headers.get("x-bot-secret") === botSecret;
 

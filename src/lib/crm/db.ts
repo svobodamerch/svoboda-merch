@@ -644,6 +644,29 @@ function initSchema(db: Database.Database) {
     CREATE INDEX IF NOT EXISTS idx_commitments_status ON commitments(status);
     CREATE INDEX IF NOT EXISTS idx_commitments_due ON commitments(due_date);
 
+    -- Входящие из Telegram: обещания, деньги и запросы, найденные в рабочих
+    -- чатах. Ждут подтверждения — в задачи и обещания попадают только после клика.
+    CREATE TABLE IF NOT EXISTS tg_inbox (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      source_atom_id INTEGER UNIQUE,
+      kind TEXT NOT NULL,
+      title TEXT NOT NULL,
+      person_name TEXT,
+      person_username TEXT,
+      chat_title TEXT,
+      deadline TEXT,
+      quote TEXT,
+      amount_kopecks INTEGER,
+      order_id INTEGER REFERENCES orders(id),
+      tg_date TEXT,
+      status TEXT NOT NULL DEFAULT 'pending',
+      result_type TEXT,
+      result_id INTEGER,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      handled_at TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_tg_inbox_status ON tg_inbox(status);
+
     -- Итог дня: что сам записал о прошедшем дне. Факты дня не храним —
     -- они считаются из данных, а здесь только то, чего в данных нет: мысли.
     CREATE TABLE IF NOT EXISTS day_notes (

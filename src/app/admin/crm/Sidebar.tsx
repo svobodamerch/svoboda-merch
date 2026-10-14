@@ -42,6 +42,7 @@ const NAV: NavItem[] = [
   },
   { type: "link", href: "/admin/crm/tasks", label: "Задачи", icon: IconTasks },
   { type: "link", href: "/admin/crm/commitments", label: "Обещания", icon: IconPromise },
+  { type: "link", href: "/admin/crm/inbox", label: "Из Telegram", icon: IconInbox },
   {
     type: "group",
     label: "Контрагенты",
