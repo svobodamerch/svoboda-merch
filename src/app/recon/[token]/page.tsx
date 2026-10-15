@@ -17,9 +17,9 @@ const field =
   "rounded-lg border border-line bg-bg px-2.5 py-2 text-[13px] text-ink outline-none focus:border-accent";
 const categoryLabel = { business: "Оплаты по сделкам", personal: "Личные переводы и займы" } as const;
 
-function balanceText(b: SettlementBalance): string {
-  if (b.balanceKopecks === 0) return "сходится в ноль";
-  return b.balanceKopecks > 0 ? `у вас остаётся ${money(b.balanceKopecks)} наших денег` : `мы вам должны ${money(-b.balanceKopecks)}`;
+function balanceWords(k: number): string {
+  if (k === 0) return "сходится в ноль";
+  return k > 0 ? `у вас остаётся ${money(k)} наших денег` : `мы вам должны ${money(-k)}`;
 }
 
 export default function ReconPage() {
@@ -100,8 +100,11 @@ export default function ReconPage() {
             <div className="mb-3">
               <p className="section-title">{categoryLabel[c]}</p>
               <p className="label text-muted mt-1">
-                По нашим данным: {balanceText(data.balances[c])}
-                {data.balances[c].withoutAmount > 0 && ` (ещё ${data.balances[c].withoutAmount} строк без суммы)`}
+                Только подтверждённое (в переписке или вами): {balanceWords(data.balances[c].confirmedBalanceKopecks)}.
+              </p>
+              <p className="label text-muted">
+                Со всеми строками «нужно сверить»: {balanceWords(data.balances[c].balanceKopecks)}. Эта цифра уточнится после ваших ответов.
+                {data.balances[c].withoutAmount > 0 && ` Ещё ${data.balances[c].withoutAmount} строк без суммы.`}
               </p>
             </div>
             <ul className="divide-y divide-line border-t border-line">

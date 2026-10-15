@@ -30,12 +30,15 @@ export type SettlementBalance = {
   outKopecks: number;
   /** in − out: плюс — у контрагента остались наши деньги, минус — мы ему должны */
   balanceKopecks: number;
+  /** Остаток только по строкам, которые подтверждены перепиской или самим контрагентом */
+  confirmedBalanceKopecks: number;
   withoutAmount: number;
 };
 
 export function computeBalance(entries: SettlementEntry[], category: SettlementCategory): SettlementBalance {
   let inK = 0;
   let outK = 0;
+  let confirmed = 0;
   let withoutAmount = 0;
   for (const e of entries) {
     if (e.category !== category) continue;
@@ -43,10 +46,14 @@ export function computeBalance(entries: SettlementEntry[], category: SettlementC
       withoutAmount++;
       continue;
     }
+    // спорные строки в остаток не входят, пока стороны не договорились
+    if (e.response === "disputed") continue;
+    const signed = e.direction === "in" ? e.amount_kopecks : -e.amount_kopecks;
     if (e.direction === "in") inK += e.amount_kopecks;
     else outK += e.amount_kopecks;
+    if (e.basis === "confirmed_in_chat" || e.response === "agreed") confirmed += signed;
   }
-  return { inKopecks: inK, outKopecks: outK, balanceKopecks: inK - outK, withoutAmount };
+  return { inKopecks: inK, outKopecks: outK, balanceKopecks: inK - outK, confirmedBalanceKopecks: confirmed, withoutAmount };
 }
 
 export function createAccount(name: string, note?: string): SettlementAccount {

@@ -17,9 +17,9 @@ const field =
   "rounded-lg border border-line bg-bg px-2.5 py-2 text-[13px] text-ink outline-none focus:border-accent";
 const categoryLabel = { business: "Оплаты по сделкам", personal: "Личные переводы и займы" } as const;
 
-function balanceText(name: string, b: SettlementBalance): string {
-  if (b.balanceKopecks === 0) return "сходится в ноль";
-  return b.balanceKopecks > 0 ? `${name} должен нам ${money(b.balanceKopecks)}` : `мы должны ${name} ${money(-b.balanceKopecks)}`;
+function balanceText(name: string, k: number): string {
+  if (k === 0) return "сходится в ноль";
+  return k > 0 ? `${name} должен нам ${money(k)}` : `мы должны ${name} ${money(-k)}`;
 }
 
 export default function SettlementDetailPage() {
@@ -112,7 +112,8 @@ export default function SettlementDetailPage() {
         {(["business", "personal"] as const).map((c) => (
           <div key={c} className="rounded-2xl bg-surface p-4">
             <p className="label text-muted">{categoryLabel[c]}</p>
-            <p className="label-lg mt-1 text-ink">{balanceText(account.name, balances[c])}</p>
+            <p className="label-lg mt-1 text-ink">{balanceText(account.name, balances[c].confirmedBalanceKopecks)}</p>
+            <p className="label text-muted">только подтверждённое · со всеми строками: {balanceText(account.name, balances[c].balanceKopecks)}</p>
             <p className="label text-muted mt-1">
               пришло {money(balances[c].inKopecks)} · выплачено {money(balances[c].outKopecks)}
               {balances[c].withoutAmount > 0 && ` · без суммы: ${balances[c].withoutAmount}`}
