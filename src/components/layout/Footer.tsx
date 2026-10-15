@@ -16,7 +16,7 @@ const legal = [
 
 export function Footer() {
   const pathname = usePathname();
-  if (pathname?.startsWith("/admin") || pathname?.startsWith("/portal")) return null;
+  if (pathname?.startsWith("/admin") || pathname?.startsWith("/portal") || pathname?.startsWith("/recon")) return null;
 
   return (
     <footer className="print:hidden border-t border-line bg-surface">

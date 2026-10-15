@@ -11,7 +11,7 @@ export function Header() {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
   const { open: openLeadModal } = useLeadModal();
-  const hidden = pathname?.startsWith("/admin") || pathname?.startsWith("/portal");
+  const hidden = pathname?.startsWith("/admin") || pathname?.startsWith("/portal") || pathname?.startsWith("/recon");
 
   useEffect(() => {
     document.body.style.overflow = menuOpen ? "hidden" : "";

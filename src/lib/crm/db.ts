@@ -667,6 +667,34 @@ function initSchema(db: Database.Database) {
     );
     CREATE INDEX IF NOT EXISTS idx_tg_inbox_status ON tg_inbox(status);
 
+    -- Взаиморасчёты с человеком, который проводит деньги через свой счёт.
+    -- Сверка по публичной ссылке: контрагент отмечает каждую строку.
+    CREATE TABLE IF NOT EXISTS settlement_accounts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      token TEXT NOT NULL UNIQUE,
+      note TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE TABLE IF NOT EXISTS settlement_entries (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      account_id INTEGER NOT NULL REFERENCES settlement_accounts(id),
+      entry_date TEXT NOT NULL,
+      category TEXT NOT NULL DEFAULT 'business',
+      direction TEXT NOT NULL,
+      amount_kopecks INTEGER,
+      title TEXT NOT NULL,
+      source TEXT,
+      evidence TEXT,
+      basis TEXT NOT NULL DEFAULT 'needs_check',
+      origin TEXT NOT NULL DEFAULT 'us',
+      response TEXT,
+      response_comment TEXT,
+      responded_at TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_settlement_entries_account ON settlement_entries(account_id);
+
     -- Итог дня: что сам записал о прошедшем дне. Факты дня не храним —
     -- они считаются из данных, а здесь только то, чего в данных нет: мысли.
     CREATE TABLE IF NOT EXISTS day_notes (
