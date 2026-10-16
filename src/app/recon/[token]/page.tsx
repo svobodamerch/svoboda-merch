@@ -99,12 +99,12 @@ export default function ReconPage() {
           <div key={c}>
             <div className="mb-3">
               <p className="section-title">{categoryLabel[c]}</p>
-              <p className="label text-muted mt-1">
-                Только подтверждённое (в переписке или вами): {balanceWords(data.balances[c].confirmedBalanceKopecks)}.
+              <p className="label text-ink mt-1">
+                Итого по расчёту: {balanceWords(data.balances[c].balanceKopecks)}.
+                {data.balances[c].withoutAmount > 0 && ` Ещё ${data.balances[c].withoutAmount} строк без суммы.`}
               </p>
               <p className="label text-muted">
-                Со всеми строками «нужно сверить»: {balanceWords(data.balances[c].balanceKopecks)}. Эта цифра уточнится после ваших ответов.
-                {data.balances[c].withoutAmount > 0 && ` Ещё ${data.balances[c].withoutAmount} строк без суммы.`}
+                Строки «нужно сверить» могут изменить итог — после ваших ответов он уточнится.
               </p>
             </div>
             <ul className="divide-y divide-line border-t border-line">
