@@ -3,10 +3,10 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
-import type { SettlementBalance, SettlementEntry } from "@/lib/crm/settlements";
+import type { SettlementBalance, SettlementEntry, SettlementProposal } from "@/lib/crm/settlements";
 
 type Detail = {
-  account: { id: number; name: string; token: string; note: string | null };
+  account: { id: number; name: string; token: string; note: string | null; tax_percent: number | null; fee_percent: number | null };
   entries: SettlementEntry[];
   balances: { business: SettlementBalance; personal: SettlementBalance };
 };
@@ -26,6 +26,8 @@ export default function SettlementDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [data, setData] = useState<Detail | null>(null);
   const [copied, setCopied] = useState(false);
+  const [proposals, setProposals] = useState<SettlementProposal[]>([]);
+  const [rates, setRatesState] = useState({ tax: "", fee: "" });
   const [form, setForm] = useState({
     date: new Date().toISOString().slice(0, 10),
     category: "business",
@@ -37,7 +39,13 @@ export default function SettlementDetailPage() {
   const load = () => {
     fetch(`/api/crm/settlements/${id}`)
       .then((r) => r.json())
-      .then(setData);
+      .then((d: Detail) => {
+        setData(d);
+        setRatesState({ tax: d.account.tax_percent?.toString() ?? "", fee: d.account.fee_percent?.toString() ?? "" });
+      });
+    fetch(`/api/crm/settlements/${id}/proposals`)
+      .then((r) => r.json())
+      .then((d) => setProposals(d.proposals || []));
   };
   useEffect(load, [id]);
 
@@ -61,6 +69,22 @@ export default function SettlementDetailPage() {
   const remove = async (entryId: number) => {
     if (!confirm("Удалить строку?")) return;
     await fetch(`/api/crm/settlements/${id}/entries/${entryId}`, { method: "DELETE" });
+    load();
+  };
+  const decide = async (pid: number, action: "accept" | "dismiss") => {
+    await fetch(`/api/crm/settlements/${id}/proposals/${pid}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action }),
+    });
+    load();
+  };
+  const saveRates = async () => {
+    await fetch(`/api/crm/settlements/${id}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "set_rates", taxPercent: rates.tax, feePercent: rates.fee }),
+    });
     load();
   };
   const copy = async () => {
@@ -107,6 +131,47 @@ export default function SettlementDetailPage() {
           {disputed > 0 && <span className="text-amber-700"> · не сходится: {disputed}</span>}
         </p>
       </div>
+
+      <div className="rounded-2xl bg-surface p-5">
+        <p className="label text-ink">Налог и комиссия с каждого прихода от клиента</p>
+        <p className="label text-muted mt-1">Подставляются отдельными строками, когда вы принимаете приход из переписки.</p>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <input className={`${field} w-24`} placeholder="Налог, %" inputMode="decimal" value={rates.tax} onChange={(e) => setRatesState((r) => ({ ...r, tax: e.target.value }))} />
+          <input className={`${field} w-24`} placeholder="Комиссия, %" inputMode="decimal" value={rates.fee} onChange={(e) => setRatesState((r) => ({ ...r, fee: e.target.value }))} />
+          <button type="button" onClick={saveRates} className="pill label bg-accent text-bg hover:bg-accent-soft">
+            Сохранить
+          </button>
+        </div>
+      </div>
+
+      {proposals.length > 0 && (
+        <div>
+          <p className="section-title mb-3">Из переписки, ждёт вашего подтверждения · {proposals.length}</p>
+          <ul className="divide-y divide-line border-t border-line">
+            {proposals.map((p) => (
+              <li key={p.id} className="py-4">
+                <p className="label text-muted">
+                  {fmtDate(p.entry_date)} · {p.category === "business" ? "оплаты по сделкам" : "личные переводы"}
+                  {p.from_counterparty ? " · написал он сам" : ""}
+                </p>
+                <p className="label-lg text-ink mt-1">
+                  {p.direction === "in" ? "+" : "−"}
+                  {p.amount_kopecks == null ? " сумма не названа" : ` ${money(p.amount_kopecks)}`} · {p.title}
+                </p>
+                {p.evidence && <p className="label text-muted mt-1">«{p.evidence}»</p>}
+                <div className="mt-3 flex gap-2">
+                  <button type="button" onClick={() => decide(p.id, "accept")} className="pill label bg-accent text-bg hover:bg-accent-soft">
+                    В сверку
+                  </button>
+                  <button type="button" onClick={() => decide(p.id, "dismiss")} className="pill label bg-surface text-ink-soft hover:bg-tint">
+                    Не то
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <div className="grid gap-3 sm:grid-cols-2">
         {(["business", "personal"] as const).map((c) => (

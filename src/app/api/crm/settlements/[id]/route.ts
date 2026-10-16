@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { toKopecks } from "@/lib/crm/format";
 import {
-  addEntry, computeBalance, getAccount, getEntries, rotateToken,
+  addEntry, computeBalance, getAccount, getEntries, rotateToken, setRates,
   type SettlementCategory, type SettlementDirection,
 } from "@/lib/crm/settlements";
 
@@ -24,6 +24,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   if (body.action === "rotate_token") {
     return NextResponse.json({ token: rotateToken(id) });
+  }
+
+  if (body.action === "set_rates") {
+    const num = (v: unknown) => (v === "" || v == null || !Number.isFinite(Number(v)) ? null : Number(v));
+    setRates(id, num(body.taxPercent), num(body.feePercent));
+    return NextResponse.json({ ok: true });
   }
 
   const title = String(body.title || "").trim();

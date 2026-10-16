@@ -22,6 +22,7 @@ export function getCrmDb(): Database.Database {
   ensureContractorServiceProductColumn(db);
   ensurePaymentsCategoryColumn(db);
   ensureOrderNotesColumn(db);
+  ensureSettlementRateColumns(db);
   ensureContractorRequisiteColumns(db);
   ensureOrderLegalEntityColumn(db);
   ensureOrderCostReviewColumns(db);
@@ -92,6 +93,13 @@ function ensureContractorServiceProductColumn(db: Database.Database) {
 }
 
 /** База знаний: свободные заметки по проекту (что сработало, косяки, поставщики) — добавляем на уже существующих базах */
+/** Ставки налога и комиссии по взаиморасчётам — на уже созданной таблице добавляем колонками */
+function ensureSettlementRateColumns(db: Database.Database) {
+  const cols = (db.prepare("PRAGMA table_info(settlement_accounts)").all() as { name: string }[]).map((c) => c.name);
+  if (!cols.includes("tax_percent")) db.exec("ALTER TABLE settlement_accounts ADD COLUMN tax_percent REAL");
+  if (!cols.includes("fee_percent")) db.exec("ALTER TABLE settlement_accounts ADD COLUMN fee_percent REAL");
+}
+
 function ensureOrderNotesColumn(db: Database.Database) {
   const cols = (db.prepare("PRAGMA table_info(orders)").all() as { name: string }[]).map((c) => c.name);
   if (!cols.includes("notes")) db.exec("ALTER TABLE orders ADD COLUMN notes TEXT");
@@ -694,6 +702,24 @@ function initSchema(db: Database.Database) {
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
     CREATE INDEX IF NOT EXISTS idx_settlement_entries_account ON settlement_entries(account_id);
+
+    -- Предложения из переписки: движения денег, найденные в новых сообщениях, ждут подтверждения
+    CREATE TABLE IF NOT EXISTS settlement_proposals (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      account_id INTEGER NOT NULL REFERENCES settlement_accounts(id),
+      source_ref TEXT NOT NULL,
+      kind TEXT NOT NULL DEFAULT 'other',
+      category TEXT NOT NULL DEFAULT 'business',
+      direction TEXT NOT NULL,
+      amount_kopecks INTEGER,
+      title TEXT NOT NULL,
+      entry_date TEXT NOT NULL,
+      evidence TEXT,
+      from_counterparty INTEGER NOT NULL DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'pending',
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE (account_id, source_ref)
+    );
 
     -- Итог дня: что сам записал о прошедшем дне. Факты дня не храним —
     -- они считаются из данных, а здесь только то, чего в данных нет: мысли.
