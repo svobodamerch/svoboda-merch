@@ -28,6 +28,12 @@ export function Header() {
       <div className="print:hidden label border-b border-line bg-surface py-2.5 text-center text-ink-soft">
         Швейное производство
         <span className="px-2 text-accent">·</span>
+        Мерч
+        <span className="px-2 text-accent">·</span>
+        Рекламная продукция
+        <span className="px-2 text-accent">·</span>
+        Event-ы
+        <span className="px-2 text-accent">·</span>
         Тираж от 1 единицы
         <span className="px-2 text-accent">·</span>
         Доставка по России

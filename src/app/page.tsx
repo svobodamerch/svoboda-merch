@@ -5,6 +5,7 @@ import { HeroReels } from "@/components/home/HeroReels";
 import { VideoStrip } from "@/components/home/VideoStrip";
 import { ProductionCarousel } from "@/components/home/ProductionCarousel";
 import { PriceList } from "@/components/home/PriceList";
+import { PriceCollapse } from "@/components/home/PriceCollapse";
 import { siteContact, socialLinks } from "@/lib/navigation";
 import { getSiteMedia } from "@/lib/media";
 import { JsonLd, catalogSchema, faqSchema } from "@/lib/seo";
@@ -44,6 +45,12 @@ const souvenirLine = [
 const clients = ["ЦФТ", "2ГИС", "NGS.RU", "AYS!GROUP", "Greenway", "KARMATRAVEL"];
 
 const services = [
+  {
+    tag: "Мероприятия",
+    title: "Всё для ваших мероприятий",
+    desc: "Баннеры и фотозоны, мерч для спикеров и команды, раздаточные материалы. Помогаем реализовать идею: от эскиза до монтажа. Небольшие тиражи, при необходимости срочно.",
+    wide: true,
+  },
   {
     tag: "Своё производство",
     title: "Шьём одежду",
@@ -154,10 +161,10 @@ export default function Home() {
               Оставить заявку
             </LeadButton>
             <a
-              href="/shop"
+              href="/store"
               className="pill label dashed !px-8 !py-4 hover:bg-surface"
             >
-              Смотреть магазин →
+              Магазин скоро →
             </a>
           </div>
 
@@ -226,12 +233,12 @@ export default function Home() {
         <Container className="py-16 md:py-24">
           <p className="label text-accent mb-4">Что делаем</p>
           <h2 className="display text-ink mb-12" style={{ fontSize: "clamp(1.6rem, 4vw, 2.6rem)" }}>
-            Четыре направления
+            Пять направлений
           </h2>
 
           <div className="grid gap-4 sm:grid-cols-2">
             {services.map((s) => (
-              <div key={s.title} className="rounded-2xl bg-surface p-6 md:p-7">
+              <div key={s.title} className={`rounded-2xl bg-surface p-6 md:p-7${"wide" in s && s.wide ? " sm:col-span-2" : ""}`}>
                 <span className="pill label bg-accent text-bg !px-3 !py-1 mb-5">{s.tag}</span>
                 <h3 className="label-lg text-ink mb-3">{s.title}</h3>
                 <p className="text-ink-soft" style={{ fontSize: "0.875rem", lineHeight: 1.7 }}>
@@ -274,10 +281,11 @@ export default function Home() {
             Цена за единицу
           </h2>
           <p className="label text-muted mb-10 max-w-lg leading-relaxed">
-            Нажмите на изделие — покажем цену по каждому тиражу и срок.
+            Разверните прайс, затем нажмите на изделие — покажем цену по каждому тиражу и срок.
             Указана стоимость без нанесения, его считаем отдельно.
           </p>
 
+          <PriceCollapse>
           <PriceList title="Одежда" rows={clothing} />
           <div className="mt-12">
             <PriceList title="Аксессуары и сувенирка" rows={accessories} />
@@ -311,6 +319,8 @@ export default function Home() {
               </div>
             ))}
           </div>
+
+          </PriceCollapse>
 
           {/* Призыв к полному расчёту */}
           <div className="mt-8 rounded-2xl border border-accent p-6 md:p-7">
@@ -499,10 +509,10 @@ export default function Home() {
 
               <div className="flex flex-col gap-2.5">
                 <a
-                  href="/shop"
+                  href="/store"
                   className="pill label w-full justify-center bg-accent text-bg !py-3.5 hover:bg-accent-soft"
                 >
-                  Перейти в магазин →
+                  Магазин скоро откроется →
                 </a>
                 <LeadButton className="pill label dashed w-full justify-center !py-3.5 hover:bg-bg">
                   Не нашли нужное? Оставить заявку
