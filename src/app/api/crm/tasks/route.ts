@@ -5,7 +5,8 @@ import { toKopecks } from "@/lib/crm/format";
 
 export async function GET(request: NextRequest) {
   const status = request.nextUrl.searchParams.get("status") as TaskStatus | null;
-  return NextResponse.json({ tasks: getTasks(status || undefined) });
+  const projectId = Number(request.nextUrl.searchParams.get("projectId")) || undefined;
+  return NextResponse.json({ tasks: getTasks(status || undefined, projectId) });
 }
 
 export async function POST(request: NextRequest) {
@@ -24,6 +25,8 @@ export async function POST(request: NextRequest) {
       remind_at: String(body.remindAt || "").trim() || undefined,
       contractor_id: body.contractorId ? Number(body.contractorId) : undefined,
       order_id: body.orderId ? Number(body.orderId) : undefined,
+      entity_type: body.projectId ? "project" : undefined,
+      entity_id: body.projectId ? Number(body.projectId) : undefined,
       amount_kopecks: body.amount ? toKopecks(body.amount) : undefined,
       source: "manual",
     },

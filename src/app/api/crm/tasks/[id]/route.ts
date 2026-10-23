@@ -19,6 +19,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     remind_at: body.remindAt !== undefined ? String(body.remindAt).trim() || null : undefined,
     contractor_id: body.contractorId !== undefined ? Number(body.contractorId) || null : undefined,
     order_id: body.orderId !== undefined ? Number(body.orderId) || null : undefined,
+    project_id: body.projectId !== undefined ? Number(body.projectId) || null : undefined,
   });
   if (!task) return NextResponse.json({ error: "Не найдено" }, { status: 404 });
   return NextResponse.json({ task });

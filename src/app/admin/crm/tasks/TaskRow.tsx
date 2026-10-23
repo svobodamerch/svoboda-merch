@@ -20,6 +20,8 @@ export type Task = {
   amount_kopecks: number | null;
   contractor_name: string | null;
   order_title: string | null;
+  project_id: number | null;
+  project_title: string | null;
 };
 
 type Option = { id: number; title?: string; name?: string };
@@ -53,11 +55,16 @@ export function TaskRow({
   task,
   contractors,
   orders,
+  projects = [],
+  hideProject = false,
   onChanged,
 }: {
   task: Task;
   contractors: Option[];
   orders: Option[];
+  /** Для выбора проекта при правке; на странице проекта не нужен */
+  projects?: Option[];
+  hideProject?: boolean;
   onChanged: () => void;
 }) {
   const [editing, setEditing] = useState(false);
@@ -68,6 +75,7 @@ export function TaskRow({
     dueAt: dayPart(task.due_at),
     contractorId: task.contractor_id ? String(task.contractor_id) : "",
     orderId: task.order_id ? String(task.order_id) : "",
+    projectId: task.project_id ? String(task.project_id) : "",
   });
 
   const save = async () => {
@@ -76,7 +84,8 @@ export function TaskRow({
     await fetch(`/api/crm/tasks/${task.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(draft),
+      // На странице проекта выбора проекта нет — не отвязываем задачу случайно
+      body: JSON.stringify(projects.length > 0 ? draft : { ...draft, projectId: undefined }),
     });
     setBusy(false);
     setEditing(false);
@@ -149,6 +158,20 @@ export function TaskRow({
             ))}
           </select>
         </div>
+        {projects.length > 0 && (
+          <select
+            className={field}
+            value={draft.projectId}
+            onChange={(e) => setDraft((d) => ({ ...d, projectId: e.target.value }))}
+          >
+            <option value="">Без проекта</option>
+            {projects.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.title}
+              </option>
+            ))}
+          </select>
+        )}
         <div className="flex flex-wrap gap-3">
           <button
             type="button"
@@ -201,6 +224,15 @@ export function TaskRow({
           </p>
         )}
       </button>
+      {task.project_id && !hideProject && (
+        <Link
+          href={`/admin/crm/projects/${task.project_id}`}
+          className="label mt-0.5 max-w-[30%] shrink-0 truncate rounded-md bg-tint px-1.5 text-muted hover:text-accent"
+          title="Открыть проект"
+        >
+          {task.project_title}
+        </Link>
+      )}
 
       <div className="flex shrink-0 items-center gap-2">
         {task.amount_kopecks != null && !isDone && (

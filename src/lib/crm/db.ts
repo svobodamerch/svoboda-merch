@@ -563,6 +563,7 @@ function initSchema(db: Database.Database) {
     );
     CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
     CREATE INDEX IF NOT EXISTS idx_tasks_due ON tasks(due_at);
+    CREATE INDEX IF NOT EXISTS idx_tasks_entity ON tasks(entity_type, entity_id);
 
     -- Ожидаемые деньги. Держим отдельно от payments, чтобы прогноз никогда
     -- не попадал в суммы фактических поступлений и расходов.
@@ -1539,6 +1540,8 @@ export type Project = {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  /** Только в getProjects — для счётчика на карточке канбана */
+  open_tasks?: number;
 };
 
 export function createProject(
@@ -1557,7 +1560,13 @@ export function createProject(
 
 export function getProjects(): Project[] {
   const db = getCrmDb();
-  return db.prepare(`SELECT * FROM projects ORDER BY updated_at DESC`).all() as Project[];
+  return db
+    .prepare(
+      `SELECT p.*,
+              (SELECT COUNT(*) FROM tasks t WHERE t.entity_type = 'project' AND t.entity_id = p.id AND t.status = 'open') as open_tasks
+       FROM projects p ORDER BY p.updated_at DESC`,
+    )
+    .all() as Project[];
 }
 
 export function getProjectById(id: number): Project | undefined {
@@ -3309,7 +3318,7 @@ export function markProposalAccepted(id: number): Proposal | undefined {
 // ---------- Задачи ----------
 
 export type TaskStatus = "open" | "done";
-export type TaskEntityType = "order" | "contractor";
+export type TaskEntityType = "order" | "contractor" | "project";
 
 export type Task = {
   id: number;
@@ -3334,6 +3343,9 @@ export type Task = {
 export type TaskWithLinks = Task & {
   contractor_name: string | null;
   order_title: string | null;
+  /** Проект — через entity_type='project', отдельной колонки нет */
+  project_id: number | null;
+  project_title: string | null;
 };
 
 export type TaskInput = {
@@ -3384,22 +3396,31 @@ export function createTask(input: TaskInput, actor?: string): Task {
 }
 
 const TASK_SELECT = `
-  SELECT t.*, c.name as contractor_name, o.title as order_title
+  SELECT t.*, c.name as contractor_name, o.title as order_title, p.id as project_id, p.title as project_title
   FROM tasks t
   LEFT JOIN contractors c ON c.id = t.contractor_id
   LEFT JOIN orders o ON o.id = t.order_id
+  LEFT JOIN projects p ON t.entity_type = 'project' AND p.id = t.entity_id
 `;
 
-export function getTasks(status?: TaskStatus): TaskWithLinks[] {
+export function getTasks(status?: TaskStatus, projectId?: number): TaskWithLinks[] {
   const db = getCrmDb();
+  const where: string[] = [];
+  const params: (string | number)[] = [];
   if (status) {
-    return db
-      .prepare(`${TASK_SELECT} WHERE t.status = ? ORDER BY t.due_at IS NULL, t.due_at, t.created_at DESC`)
-      .all(status) as TaskWithLinks[];
+    where.push("t.status = ?");
+    params.push(status);
+  }
+  if (projectId) {
+    where.push("t.entity_type = 'project' AND t.entity_id = ?");
+    params.push(projectId);
   }
   return db
-    .prepare(`${TASK_SELECT} ORDER BY t.status, t.due_at IS NULL, t.due_at, t.created_at DESC`)
-    .all() as TaskWithLinks[];
+    .prepare(
+      `${TASK_SELECT} ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
+       ORDER BY t.status, t.due_at IS NULL, t.due_at, t.created_at DESC`,
+    )
+    .all(...params) as TaskWithLinks[];
 }
 
 const MSK_OFFSET_MS = 3 * 60 * 60 * 1000;
@@ -3453,6 +3474,8 @@ export type TaskUpdate = {
   remind_at?: string | null;
   contractor_id?: number | null;
   order_id?: number | null;
+  /** null — отвязать от проекта. Задачу, привязанную к чему-то другому через entity_*, не трогаем */
+  project_id?: number | null;
 };
 
 /**
@@ -3464,9 +3487,16 @@ export function updateTask(id: number, input: TaskUpdate): Task | undefined {
   const current = db.prepare(`SELECT * FROM tasks WHERE id = ?`).get(id) as Task | undefined;
   if (!current) return undefined;
 
+  let entityType = current.entity_type;
+  let entityId = current.entity_id;
+  if (input.project_id !== undefined && (!current.entity_type || current.entity_type === "project")) {
+    entityType = input.project_id ? "project" : null;
+    entityId = input.project_id || null;
+  }
+
   db.prepare(
     `UPDATE tasks SET title = ?, description = ?, due_at = ?, remind_at = ?,
-                      contractor_id = ?, order_id = ?, updated_at = datetime('now')
+                      contractor_id = ?, order_id = ?, entity_type = ?, entity_id = ?, updated_at = datetime('now')
      WHERE id = ?`,
   ).run(
     input.title ?? current.title,
@@ -3475,6 +3505,8 @@ export function updateTask(id: number, input: TaskUpdate): Task | undefined {
     input.remind_at !== undefined ? input.remind_at : current.remind_at,
     input.contractor_id !== undefined ? input.contractor_id : current.contractor_id,
     input.order_id !== undefined ? input.order_id : current.order_id,
+    entityType,
+    entityId,
     id,
   );
   return db.prepare(`SELECT * FROM tasks WHERE id = ?`).get(id) as Task | undefined;

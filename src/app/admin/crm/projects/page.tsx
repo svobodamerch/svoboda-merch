@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
 import { Attachments } from "@/components/crm/Attachments";
 import { ProjectCosts } from "./ProjectCosts";
@@ -14,6 +15,7 @@ type Project = {
   order_id: number | null;
   created_at: string;
   updated_at: string;
+  open_tasks?: number;
 };
 
 const STAGES: { key: ProjectStage; label: string }[] = [
@@ -102,13 +104,22 @@ export default function ProjectsPage() {
               <div className="space-y-2">
                 {items.map((p) => (
                   <div key={p.id} className="rounded-xl bg-surface p-3">
-                    <button
-                      type="button"
-                      onClick={() => setExpanded(expanded === p.id ? null : p.id)}
-                      className="label text-ink block text-left"
-                    >
-                      {p.title}
-                    </button>
+                    <div className="flex items-start justify-between gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setExpanded(expanded === p.id ? null : p.id)}
+                        className="label text-ink block text-left"
+                      >
+                        {p.title}
+                      </button>
+                      <Link
+                        href={`/admin/crm/projects/${p.id}`}
+                        className="label shrink-0 text-muted hover:text-accent"
+                        title="Открыть проект"
+                      >
+                        {p.open_tasks ? `${p.open_tasks} →` : "→"}
+                      </Link>
+                    </div>
 
                     {expanded === p.id && (
                       <div className="mt-3 space-y-3">

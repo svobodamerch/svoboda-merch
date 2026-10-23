@@ -41,6 +41,13 @@ const statusStyle: Record<Lead["status"], string> = {
   archived: "bg-surface text-muted",
 };
 
+/** Лендинги брендов шлют свой source — подписываем, чтобы было видно, откуда заявка */
+const sourceLabel: Record<string, string> = {
+  onetee: "onetee.ru",
+  teetee: "teetee.ru",
+  prdprnmtl: "prdprnmtl.ru",
+};
+
 export default function LeadsPage() {
   const [leads, setLeads] = useState<Lead[] | null>(null);
   const [busy, setBusy] = useState<number | null>(null);
@@ -117,6 +124,7 @@ export default function LeadsPage() {
                     {l.company ? ` · ${l.company}` : ""}
                   </p>
                   <p className="label text-muted mt-0.5">
+                    {sourceLabel[l.source] && <span className="text-accent">{sourceLabel[l.source]} · </span>}
                     {l.product_type} · {l.quantity}
                     {isSpamLike(l) && <span className="text-amber-700"> · похоже на спам</span>}
                   </p>
