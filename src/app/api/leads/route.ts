@@ -4,7 +4,27 @@ import { sendManagerNotification } from "@/lib/email";
 import { createNotionLead } from "@/lib/notion";
 import { notifyNewLead } from "@/lib/telegram";
 
+// Лендинги брендов (onetee/teetee/prdprnmtl) шлют форму сюда с другого
+// домена — без этих заголовков браузер режет запрос на preflight
+const BRAND_ORIGINS = /^https:\/\/(www\.)?(onetee|teetee|prdprnmtl)\.ru$/;
+
+function corsHeaders(request: NextRequest): Record<string, string> {
+  const origin = request.headers.get("origin") || "";
+  if (!BRAND_ORIGINS.test(origin)) return {};
+  return {
+    "Access-Control-Allow-Origin": origin,
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type",
+    Vary: "Origin",
+  };
+}
+
+export async function OPTIONS(request: NextRequest) {
+  return new NextResponse(null, { status: 204, headers: corsHeaders(request) });
+}
+
 export async function POST(request: NextRequest) {
+  const cors = corsHeaders(request);
   try {
     const body = await request.json();
 
@@ -18,7 +38,7 @@ export async function POST(request: NextRequest) {
     if (!name || !phone || !productType || !quantity) {
       return NextResponse.json(
         { error: "Заполните обязательные поля" },
-        { status: 400 },
+        { status: 400, headers: cors },
       );
     }
 
@@ -66,12 +86,12 @@ export async function POST(request: NextRequest) {
       source,
     }).catch((e) => console.warn("[api/leads] Telegram:", e));
 
-    return NextResponse.json({ success: true, id: leadId ?? null }, { status: 201 });
+    return NextResponse.json({ success: true, id: leadId ?? null }, { status: 201, headers: cors });
   } catch (error) {
     console.error("[api/leads] POST error:", error);
     return NextResponse.json(
       { error: "Ошибка сервера" },
-      { status: 500 },
+      { status: 500, headers: cors },
     );
   }
 }
