@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createArchiveDoc, normalizeKind, storeArchiveFile } from "@/lib/crm/archive";
 import { isAllowedAttachmentType } from "@/lib/crm/attachments";
 import { authPortal, getContractorTask, portalActor } from "@/lib/crm/portal-tasks";
+import { legalEntityIdForContractor } from "@/lib/crm/portal-finance";
 
 const MAX_SIZE_BYTES = 40 * 1024 * 1024;
 
@@ -29,6 +30,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       title: file.name.replace(/\.[^.]+$/, ""),
       contractor_id: auth.contractor.id,
       task_id: task.id,
+      legal_entity_id: legalEntityIdForContractor(auth.contractor.id),
       summary: `К задаче «${task.title}»`,
       source: "portal",
       filename,

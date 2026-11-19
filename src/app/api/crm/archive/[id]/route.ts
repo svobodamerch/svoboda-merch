@@ -19,7 +19,7 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
   const map: Record<string, keyof ArchiveInput> = {
     kind: "kind", title: "title", docNumber: "doc_number", docDate: "doc_date", amount: "amount_kopecks",
     direction: "direction", status: "status", contractorId: "contractor_id", orderId: "order_id",
-    projectId: "project_id", summary: "summary", contentText: "content_text", tags: "tags",
+    projectId: "project_id", legalEntityId: "legal_entity_id", summary: "summary", contentText: "content_text", tags: "tags",
   };
   const patch: Partial<ArchiveInput> = {};
   for (const [bodyKey, col] of Object.entries(map)) {

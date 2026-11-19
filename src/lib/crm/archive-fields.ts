@@ -22,6 +22,7 @@ export function parseArchiveFields(get: (k: string) => unknown): Partial<Archive
     contractor_id: id(get("contractorId")),
     order_id: id(get("orderId")),
     project_id: id(get("projectId")),
+    legal_entity_id: id(get("legalEntityId")),
     summary: str(get("summary")),
     content_text: str(get("contentText")),
     tags: str(get("tags")),

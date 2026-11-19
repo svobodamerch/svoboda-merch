@@ -18,6 +18,8 @@ type Item = {
   status: string | null;
   contractor_id: number | null;
   contractor_name: string | null;
+  legal_entity_id: number | null;
+  legal_entity_name: string | null;
   order_id: number | null;
   order_title: string | null;
   project_id: number | null;
@@ -186,6 +188,11 @@ export default function ArchivePage() {
                     {it.contractor_name}
                   </Link>
                 )}
+                {it.legal_entity_id && (
+                  <Link href={`/admin/crm/legal-entities/${it.legal_entity_id}`} className="hover:text-ink">
+                    от {it.legal_entity_name}
+                  </Link>
+                )}
                 {it.order_id && (
                   <Link href={`/admin/crm/orders/${it.order_id}`} className="hover:text-ink">
                     заказ: {it.order_title}
@@ -232,6 +239,7 @@ export default function ArchivePage() {
 const STATUS: Record<string, string> = { awaiting: "ждёт оплаты", paid: "оплачен", signed: "подписан", cancelled: "отменён" };
 
 type Meta = {
+  legalEntityId: string;
   status: string;
   title: string;
   kind: string;
@@ -247,6 +255,7 @@ type Meta = {
 };
 
 const emptyMeta: Meta = {
+  legalEntityId: "",
   status: "",
   title: "",
   kind: "other",
@@ -261,6 +270,22 @@ const emptyMeta: Meta = {
   tags: "",
 };
 
+type Entity = { id: number; short_name: string };
+let entitiesCache: Entity[] | null = null;
+function useEntities(): Entity[] {
+  const [list, setList] = useState<Entity[]>(entitiesCache || []);
+  useEffect(() => {
+    if (entitiesCache) return;
+    fetch("/api/crm/legal-entities")
+      .then((r) => r.json())
+      .then((d) => {
+        entitiesCache = d.legalEntities || d.entities || [];
+        setList(entitiesCache!);
+      });
+  }, []);
+  return list;
+}
+
 function MetaFields({
   meta,
   set,
@@ -274,6 +299,7 @@ function MetaFields({
   orders: Option[];
   projects: Option[];
 }) {
+  const entities = useEntities();
   return (
     <div className="grid gap-2 md:grid-cols-2">
       <input className={field} placeholder="Название (по умолчанию — имя файла)" value={meta.title} onChange={(e) => set({ title: e.target.value })} />
@@ -293,6 +319,14 @@ function MetaFields({
         <option value="out">Исходящий (от нас)</option>
       </select>
       <ContractorPicker contractors={contractors} value={meta.contractorId} onChange={(v) => set({ contractorId: v })} placeholder="Контрагент — не указан" />
+      <select className={field} value={meta.legalEntityId} onChange={(e) => set({ legalEntityId: e.target.value })}>
+        <option value="">Наше юрлицо — не указано</option>
+        {entities.map((e) => (
+          <option key={e.id} value={e.id}>
+            {e.short_name}
+          </option>
+        ))}
+      </select>
       <select className={field} value={meta.orderId} onChange={(e) => set({ orderId: e.target.value })}>
         <option value="">Заказ — не указан</option>
         {orders.map((o) => (
@@ -407,6 +441,7 @@ function EditForm({
   onDelete: () => void;
 }) {
   const [meta, setMeta] = useState<Meta>({
+    legalEntityId: item.legal_entity_id ? String(item.legal_entity_id) : "",
     status: item.status || "",
     title: item.title,
     kind: item.kind,

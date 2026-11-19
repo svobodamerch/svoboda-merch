@@ -27,7 +27,7 @@ type Finance = {
   needsCheckCount: number;
   lastEntryDate: string | null;
   personal: { inKopecks: number; outKopecks: number; balanceKopecks: number } | null;
-  expected: { doc_number: string | null; title: string; doc_date: string | null; amount_kopecks: number; tags: string | null }[];
+  expected: { doc_number: string | null; title: string; doc_date: string | null; amount_kopecks: number; tags: string | null; client_name: string | null }[];
   expectedKopecks: number;
   expectedNetKopecks: number;
   pending: { entry_date: string; direction: string; amount_kopecks: number | null; title: string }[];
@@ -115,7 +115,10 @@ export function PortalFinance({ slug, password }: { slug: string; password: stri
               <li key={d.doc_number || d.title} className="flex items-start justify-between gap-3 py-2.5">
                 <div className="min-w-0">
                   <p className="label text-ink-soft">{d.title}</p>
-                  <p className="label text-muted">{day(d.doc_date)}</p>
+                  <p className="label text-muted">
+                    {day(d.doc_date)}
+                    {d.client_name && !/остапович/i.test(d.client_name) && <> · {d.client_name}</>}
+                  </p>
                 </div>
                 <span className="label text-ink shrink-0">{money(d.amount_kopecks)}</span>
               </li>

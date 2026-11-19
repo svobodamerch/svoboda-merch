@@ -23,6 +23,7 @@ export async function GET(request: NextRequest) {
       contractorId: num(sp.get("contractorId")),
       orderId: num(sp.get("orderId")),
       projectId: num(sp.get("projectId")),
+      legalEntityId: num(sp.get("legalEntityId")),
       from: sp.get("from") || undefined,
       to: sp.get("to") || undefined,
       limit: num(sp.get("limit")),

@@ -27,6 +27,7 @@ export type ArchiveDoc = {
   order_id: number | null;
   project_id: number | null;
   task_id: number | null;
+  legal_entity_id: number | null;
   summary: string | null;
   content_text: string | null;
   tags: string | null;
@@ -55,6 +56,8 @@ export type ArchiveListItem = {
   status: string | null;
   contractor_id: number | null;
   contractor_name: string | null;
+  legal_entity_id: number | null;
+  legal_entity_name: string | null;
   order_id: number | null;
   order_title: string | null;
   project_id: number | null;
@@ -75,6 +78,7 @@ export type ArchiveFilters = {
   contractorId?: number;
   orderId?: number;
   projectId?: number;
+  legalEntityId?: number;
   from?: string;
   to?: string;
   limit?: number;
@@ -125,6 +129,7 @@ export type ArchiveInput = {
   order_id?: number | null;
   project_id?: number | null;
   task_id?: number | null;
+  legal_entity_id?: number | null;
   summary?: string | null;
   content_text?: string | null;
   tags?: string | null;
@@ -150,9 +155,9 @@ export function createArchiveDoc(input: ArchiveInput, actor?: string): ArchiveDo
     .prepare(
       `INSERT INTO archive_documents
         (kind, title, doc_number, doc_date, amount_kopecks, direction, status,
-         contractor_id, order_id, project_id, task_id, summary, content_text, tags, source,
+         contractor_id, order_id, project_id, task_id, legal_entity_id, summary, content_text, tags, source,
          filename, original_name, mime_type, size_bytes, sha256, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        RETURNING *`,
     )
     .get(
@@ -167,6 +172,7 @@ export function createArchiveDoc(input: ArchiveInput, actor?: string): ArchiveDo
       input.order_id ?? null,
       input.project_id ?? null,
       input.task_id ?? null,
+      input.legal_entity_id ?? null,
       input.summary ?? null,
       input.content_text ?? null,
       input.tags ?? null,
@@ -188,7 +194,7 @@ export function createArchiveDoc(input: ArchiveInput, actor?: string): ArchiveDo
 
 const EDITABLE: (keyof ArchiveInput)[] = [
   "kind", "title", "doc_number", "doc_date", "amount_kopecks", "direction", "status",
-  "contractor_id", "order_id", "project_id", "summary", "content_text", "tags",
+  "contractor_id", "order_id", "project_id", "legal_entity_id", "summary", "content_text", "tags",
 ];
 
 export function updateArchiveDoc(id: number, patch: Partial<ArchiveInput>): ArchiveDoc | undefined {
@@ -226,13 +232,16 @@ export function listArchive(f: ArchiveFilters = {}): ArchiveListItem[] {
 
   const archive = db
     .prepare(
-      `SELECT a.*, c.name AS contractor_name, o.title AS order_title, p.title AS project_title
+      `SELECT a.*, c.name AS contractor_name, v.short_name AS legal_entity_name, o.title AS order_title, p.title AS project_title
        FROM archive_documents a
        LEFT JOIN contractors c ON c.id = a.contractor_id
+       LEFT JOIN legal_entities v ON v.id = a.legal_entity_id
        LEFT JOIN orders o ON o.id = a.order_id
        LEFT JOIN projects p ON p.id = a.project_id`,
     )
-    .all() as (ArchiveDoc & { contractor_name: string | null; order_title: string | null; project_title: string | null })[];
+    .all() as (ArchiveDoc & {
+    contractor_name: string | null; legal_entity_name: string | null; order_title: string | null; project_title: string | null;
+  })[];
 
   const orderFiles = db
     .prepare(
@@ -273,6 +282,8 @@ export function listArchive(f: ArchiveFilters = {}): ArchiveListItem[] {
       status: a.status,
       contractor_id: a.contractor_id,
       contractor_name: a.contractor_name,
+      legal_entity_id: a.legal_entity_id,
+      legal_entity_name: a.legal_entity_name,
       order_id: a.order_id,
       order_title: a.order_title,
       project_id: a.project_id,
@@ -285,7 +296,7 @@ export function listArchive(f: ArchiveFilters = {}): ArchiveListItem[] {
       size_bytes: a.size_bytes,
       file_url: a.filename ? `/api/crm/archive/${a.id}/file` : null,
       created_at: a.created_at,
-      _haystack: [a.title, a.doc_number, a.summary, a.content_text, a.tags, a.original_name, a.contractor_name, a.order_title, a.project_title]
+      _haystack: [a.title, a.doc_number, a.summary, a.content_text, a.tags, a.original_name, a.contractor_name, a.legal_entity_name, a.order_title, a.project_title]
         .filter(Boolean)
         .join(" \n ")
         .toLowerCase(),
@@ -306,6 +317,8 @@ export function listArchive(f: ArchiveFilters = {}): ArchiveListItem[] {
       status: null,
       contractor_id: f.contractor_id,
       contractor_name: f.contractor_name,
+      legal_entity_id: null,
+      legal_entity_name: null,
       order_id: f.order_id,
       order_title: f.order_title,
       project_id: null,
@@ -336,6 +349,8 @@ export function listArchive(f: ArchiveFilters = {}): ArchiveListItem[] {
       status: null,
       contractor_id: null,
       contractor_name: null,
+      legal_entity_id: null,
+      legal_entity_name: null,
       order_id: null,
       order_title: null,
       project_id: f.project_id,
@@ -356,6 +371,7 @@ export function listArchive(f: ArchiveFilters = {}): ArchiveListItem[] {
   const result = items.filter((it) => {
     if (f.kind && it.kind !== f.kind) return false;
     if (f.contractorId && it.contractor_id !== f.contractorId) return false;
+    if (f.legalEntityId && it.legal_entity_id !== f.legalEntityId) return false;
     if (f.orderId && it.order_id !== f.orderId) return false;
     if (f.projectId && it.project_id !== f.projectId) return false;
     const date = it.doc_date || it.created_at.slice(0, 10);

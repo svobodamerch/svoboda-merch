@@ -21,6 +21,7 @@ export type ExpectedIncome = {
   doc_date: string | null;
   amount_kopecks: number;
   tags: string | null;
+  client_name: string | null;
 };
 
 export type PortalFinance = {
@@ -53,6 +54,14 @@ const groupOf = (e: SettlementEntry): FinanceEntry["group"] => {
   return "expense";
 };
 
+/** Наше юрлицо, которым «владеет» контрагент портала, — по совпадению ИНН */
+export function legalEntityIdForContractor(contractorId: number): number | null {
+  const row = getCrmDb()
+    .prepare(`SELECT le.id FROM legal_entities le JOIN contractors c ON c.inn = le.inn WHERE c.id = ? AND c.inn IS NOT NULL`)
+    .get(contractorId) as { id: number } | undefined;
+  return row?.id ?? null;
+}
+
 export function getPortalFinance(contractorId: number): PortalFinance | null {
   const db = getCrmDb();
   const link = db.prepare(`SELECT settlement_account_id FROM contractors WHERE id = ?`).get(contractorId) as
@@ -79,14 +88,19 @@ export function getPortalFinance(contractorId: number): PortalFinance | null {
   const bal = computeBalance(all, "business");
   const pBal = personalEntries.length ? computeBalance(all, "personal") : null;
 
+  // Юрлицо контрагента портала (ИП Остапович — наше юрлицо, Юра получает
+  // с него процент): ищем по ИНН, отдельной связи не заводим
+  const entityId = legalEntityIdForContractor(contractorId);
+
   // docx и pdf одного счёта — один счёт: схлопываем по номеру
   const docs = db
     .prepare(
-      `SELECT doc_number, title, doc_date, amount_kopecks, tags FROM archive_documents
-       WHERE contractor_id = ? AND status = 'awaiting' AND amount_kopecks IS NOT NULL
-       ORDER BY doc_date`,
+      `SELECT a.doc_number, a.title, a.doc_date, a.amount_kopecks, a.tags, c.name AS client_name
+       FROM archive_documents a LEFT JOIN contractors c ON c.id = a.contractor_id
+       WHERE a.legal_entity_id = ? AND a.status = 'awaiting' AND a.amount_kopecks IS NOT NULL
+       ORDER BY a.doc_date`,
     )
-    .all(contractorId) as ExpectedIncome[];
+    .all(entityId ?? -1) as ExpectedIncome[];
   const seen = new Set<string>();
   const expected = docs.filter((d) => {
     const key = d.doc_number || d.title;

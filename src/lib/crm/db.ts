@@ -307,7 +307,14 @@ function ensureArchiveTable(db: Database.Database) {
   // лежит в том же архиве, задача просто ссылается на него
   const cols = (db.prepare("PRAGMA table_info(archive_documents)").all() as { name: string }[]).map((c) => c.name);
   if (!cols.includes("task_id")) db.exec("ALTER TABLE archive_documents ADD COLUMN task_id INTEGER REFERENCES tasks(id)");
+  // От какого нашего юрлица документ (ИП Лялин / ИП Остапович): клиент —
+  // contractor_id, наша сторона — legal_entity_id. По нему сводка юрлица
+  // в портале собирает выставленные, но ещё не оплаченные счета.
+  if (!cols.includes("legal_entity_id")) {
+    db.exec("ALTER TABLE archive_documents ADD COLUMN legal_entity_id INTEGER REFERENCES legal_entities(id)");
+  }
   db.exec("CREATE INDEX IF NOT EXISTS idx_archive_task ON archive_documents(task_id)");
+  db.exec("CREATE INDEX IF NOT EXISTS idx_archive_legal_entity ON archive_documents(legal_entity_id)");
 
   // Счёт взаиморасчётов, который показывается в портале контрагента
   // (ИП Остапович → «Юра Остапович»): приход/расход/налог/комиссия/остаток
