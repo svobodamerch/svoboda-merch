@@ -19,7 +19,7 @@ export function Footer() {
   if (pathname?.startsWith("/admin") || pathname?.startsWith("/portal") || pathname?.startsWith("/recon")) return null;
 
   return (
-    <footer className="print:hidden border-t border-line bg-surface">
+    <footer className="site-chrome print:hidden border-t border-line bg-surface">
       <Container className="py-12 md:py-16">
         <div className="grid gap-10 md:grid-cols-4">
           <div>

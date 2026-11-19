@@ -25,7 +25,7 @@ export function Header() {
   return (
     <>
       {/* Светлая полоса вместо тёмной плашки */}
-      <div className="print:hidden label border-b border-line bg-surface py-2.5 text-center text-ink-soft">
+      <div className="site-chrome print:hidden label border-b border-line bg-surface py-2.5 text-center text-ink-soft">
         Швейное производство
         <span className="px-2 text-accent">·</span>
         Мерч
@@ -39,7 +39,7 @@ export function Header() {
         Доставка по России
       </div>
 
-      <header className="print:hidden sticky top-0 z-50 border-b border-line bg-bg/95 backdrop-blur-sm">
+      <header className="site-chrome print:hidden sticky top-0 z-50 border-b border-line bg-bg/95 backdrop-blur-sm">
         <Container className="flex h-16 items-center justify-between gap-4">
           <Link href="/" className="label-lg shrink-0 text-ink">
             [СВОБОДА]<span className="text-accent">*</span>
