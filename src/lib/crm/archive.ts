@@ -26,6 +26,7 @@ export type ArchiveDoc = {
   contractor_id: number | null;
   order_id: number | null;
   project_id: number | null;
+  task_id: number | null;
   summary: string | null;
   content_text: string | null;
   tags: string | null;
@@ -123,6 +124,7 @@ export type ArchiveInput = {
   contractor_id?: number | null;
   order_id?: number | null;
   project_id?: number | null;
+  task_id?: number | null;
   summary?: string | null;
   content_text?: string | null;
   tags?: string | null;
@@ -148,9 +150,9 @@ export function createArchiveDoc(input: ArchiveInput, actor?: string): ArchiveDo
     .prepare(
       `INSERT INTO archive_documents
         (kind, title, doc_number, doc_date, amount_kopecks, direction, status,
-         contractor_id, order_id, project_id, summary, content_text, tags, source,
+         contractor_id, order_id, project_id, task_id, summary, content_text, tags, source,
          filename, original_name, mime_type, size_bytes, sha256, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        RETURNING *`,
     )
     .get(
@@ -164,6 +166,7 @@ export function createArchiveDoc(input: ArchiveInput, actor?: string): ArchiveDo
       input.contractor_id ?? null,
       input.order_id ?? null,
       input.project_id ?? null,
+      input.task_id ?? null,
       input.summary ?? null,
       input.content_text ?? null,
       input.tags ?? null,

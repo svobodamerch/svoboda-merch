@@ -47,6 +47,7 @@ const sourceLabel: Record<string, string> = {
   claude: "Claude",
   order: "из заказа",
   project: "из проекта",
+  portal: "из портала",
 };
 
 export default function ArchivePage() {

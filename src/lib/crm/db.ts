@@ -303,6 +303,11 @@ function ensureArchiveTable(db: Database.Database) {
     CREATE INDEX IF NOT EXISTS idx_archive_date ON archive_documents(doc_date);
     CREATE INDEX IF NOT EXISTS idx_archive_sha ON archive_documents(sha256);
   `);
+  // Файл, приложенный к задаче (акт по задаче «отправить акт ДШИ») —
+  // лежит в том же архиве, задача просто ссылается на него
+  const cols = (db.prepare("PRAGMA table_info(archive_documents)").all() as { name: string }[]).map((c) => c.name);
+  if (!cols.includes("task_id")) db.exec("ALTER TABLE archive_documents ADD COLUMN task_id INTEGER REFERENCES tasks(id)");
+  db.exec("CREATE INDEX IF NOT EXISTS idx_archive_task ON archive_documents(task_id)");
 }
 
 function initSchema(db: Database.Database) {
@@ -1161,9 +1166,13 @@ export function getContractorByPortalSlug(slug: string): Contractor | undefined 
 /** Пароль портала — номер телефона подрядчика без первой цифры (обычно 8/+7) и разделителей */
 export function checkPortalPassword(contractor: Contractor, password: string): boolean {
   if (!contractor.phone) return false;
-  const digits = contractor.phone.replace(/\D/g, "");
-  const expected = digits.replace(/^[78]/, "");
-  const given = password.replace(/\D/g, "");
+  // 11 цифр с 8/7 в начале и 10 цифр без неё — один и тот же пароль
+  const norm = (v: string) => {
+    const d = v.replace(/\D/g, "");
+    return d.length === 11 ? d.replace(/^[78]/, "") : d;
+  };
+  const expected = norm(contractor.phone);
+  const given = norm(password);
   return !!expected && expected === given;
 }
 

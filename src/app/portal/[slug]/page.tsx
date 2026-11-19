@@ -2,6 +2,7 @@
 
 import { useParams } from "next/navigation";
 import { useState, type FormEvent } from "react";
+import { PortalTasks } from "./PortalTasks";
 
 type CostRow = {
   id: number;
@@ -63,11 +64,11 @@ export default function ContractorPortalPage() {
     return (
       <div className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-6">
         <p className="label-lg text-ink mb-1">[СВОБОДА]*</p>
-        <p className="label text-muted mb-6">Сверка заказов</p>
+        <p className="label text-muted mb-6">Задачи и сверка</p>
         <form onSubmit={submit} className="space-y-3">
           <input
             className="w-full rounded-xl border border-line bg-bg px-4 py-3 text-[15px] text-ink outline-none focus:border-accent"
-            placeholder="Пароль — ваш номер телефона без 8"
+            placeholder="Пароль — номер телефона"
             inputMode="numeric"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -96,8 +97,10 @@ export default function ContractorPortalPage() {
     <div className="mx-auto max-w-lg space-y-8 px-4 py-8">
       <div>
         <p className="label-lg text-ink">{data.contractorName}</p>
-        <p className="label text-muted">Сверка по работе</p>
+        <p className="label text-muted">Задачи и сверка по работе</p>
       </div>
+
+      <PortalTasks slug={slug} password={password} />
 
       <div className="rounded-2xl bg-tint p-6">
         <p className="label text-accent mb-1">
