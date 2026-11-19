@@ -31,6 +31,7 @@ export function getCrmDb(): Database.Database {
   ensureContractorOpeningBalanceColumns(db);
   ensureProposalBlocksColumn(db);
   ensureOrderItemLeadTimeColumn(db);
+  ensureArchiveTable(db);
   db.exec("CREATE INDEX IF NOT EXISTS idx_payments_category ON payments(category_id)");
   db.exec("CREATE INDEX IF NOT EXISTS idx_order_costs_review ON order_costs(needs_review)");
   // Индексы по колонкам из ensure-миграций — только после них, иначе на уже
@@ -258,6 +259,50 @@ function ensureTaskLinkColumns(db: Database.Database) {
   // Напомнить можно раньше срока («созвон в 14:00, напомнить за 10 минут»).
   // Пусто — напоминаем ровно в due_at, как было.
   if (!cols.includes("remind_at")) db.exec("ALTER TABLE tasks ADD COLUMN remind_at TEXT");
+}
+
+/**
+ * Архив документов — всё, что не счёт/акт, выставленный самой CRM:
+ * договоры, входящие акты и УПД, сканы, макеты, реквизиты, письма.
+ * Привязка к контрагенту/заказу/проекту необязательна — договор ИП
+ * или выписка могут не относиться ни к одной сделке. content_text —
+ * извлечённый текст, по нему ищем; sha256 — чтобы один файл не лёг дважды.
+ * source: 'manual' — загрузил человек, 'claude' — записал ассистент по API.
+ */
+function ensureArchiveTable(db: Database.Database) {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS archive_documents (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      kind TEXT NOT NULL DEFAULT 'other',
+      title TEXT NOT NULL,
+      doc_number TEXT,
+      doc_date TEXT,
+      amount_kopecks INTEGER,
+      direction TEXT,
+      status TEXT,
+      contractor_id INTEGER REFERENCES contractors(id),
+      order_id INTEGER REFERENCES orders(id),
+      project_id INTEGER REFERENCES projects(id),
+      summary TEXT,
+      content_text TEXT,
+      tags TEXT,
+      source TEXT NOT NULL DEFAULT 'manual',
+      filename TEXT,
+      original_name TEXT,
+      mime_type TEXT,
+      size_bytes INTEGER,
+      sha256 TEXT,
+      created_by TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_archive_contractor ON archive_documents(contractor_id);
+    CREATE INDEX IF NOT EXISTS idx_archive_order ON archive_documents(order_id);
+    CREATE INDEX IF NOT EXISTS idx_archive_project ON archive_documents(project_id);
+    CREATE INDEX IF NOT EXISTS idx_archive_kind ON archive_documents(kind);
+    CREATE INDEX IF NOT EXISTS idx_archive_date ON archive_documents(doc_date);
+    CREATE INDEX IF NOT EXISTS idx_archive_sha ON archive_documents(sha256);
+  `);
 }
 
 function initSchema(db: Database.Database) {

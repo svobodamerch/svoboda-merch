@@ -136,3 +136,13 @@ export function IconProjects({ className }: IconProps) {
     </svg>
   );
 }
+
+export function IconArchive({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 20 20" className={className} {...common}>
+      <rect x="2.5" y="3" width="15" height="4" rx="1" />
+      <path d="M3.5 7v8.5A1.5 1.5 0 0 0 5 17h10a1.5 1.5 0 0 0 1.5-1.5V7" />
+      <path d="M8 10.5h4" />
+    </svg>
+  );
+}

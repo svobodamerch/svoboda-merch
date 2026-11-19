@@ -58,7 +58,16 @@ export async function middleware(request: NextRequest) {
     !!botSecret &&
     request.headers.get("x-bot-secret") === botSecret;
 
-  if ((isProtectedPage || isProtectedApi) && !hasBotSecret) {
+  // Ключ ассистента для архива документов: только /api/crm/archive/*,
+  // без удаления — удаляет человек из админки.
+  const archiveKey = process.env.ARCHIVE_API_KEY;
+  const hasArchiveKey =
+    !!archiveKey &&
+    (effectivePathname === "/api/crm/archive" || effectivePathname.startsWith("/api/crm/archive/")) &&
+    request.method !== "DELETE" &&
+    request.headers.get("x-archive-key") === archiveKey;
+
+  if ((isProtectedPage || isProtectedApi) && !hasBotSecret && !hasArchiveKey) {
     const session = await verifySession(request.cookies.get(SESSION_COOKIE)?.value);
     if (!session) {
       if (isProtectedApi) {

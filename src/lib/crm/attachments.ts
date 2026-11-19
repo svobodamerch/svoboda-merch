@@ -6,7 +6,7 @@ import crypto from "crypto";
  * Файлы лежат вне git, рядом с базой (data/uploads) — тот же диск,
  * что и leads.db, поэтому деплой их не трогает и не затирает.
  */
-const UPLOAD_ROOT = process.env.UPLOAD_DIR || path.join(process.cwd(), "data", "uploads");
+export const UPLOAD_ROOT = process.env.UPLOAD_DIR || path.join(process.cwd(), "data", "uploads");
 
 const ALLOWED_MIME = new Set([
   "application/pdf",
@@ -18,6 +18,10 @@ const ALLOWED_MIME = new Set([
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   "application/vnd.ms-excel",
   "application/zip",
+  "application/msword",
+  "text/plain",
+  "text/csv",
+  "image/heic",
 ]);
 
 export function isAllowedAttachmentType(mimeType: string): boolean {
@@ -64,3 +68,4 @@ export const readProjectAttachment = (projectId: number, filename: string) =>
   readAttachment("projects", projectId, filename);
 export const deleteProjectAttachmentFile = (projectId: number, filename: string) =>
   deleteAttachmentFile("projects", projectId, filename);
+
