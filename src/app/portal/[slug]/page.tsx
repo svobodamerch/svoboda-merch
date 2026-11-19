@@ -69,7 +69,7 @@ export default function ContractorPortalPage() {
         <form onSubmit={submit} className="space-y-3">
           <input
             className="w-full rounded-xl border border-line bg-bg px-4 py-3 text-[15px] text-ink outline-none focus:border-accent"
-            placeholder="Пароль — номер телефона"
+            placeholder="Пароль"
             inputMode="numeric"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
