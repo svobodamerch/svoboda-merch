@@ -308,6 +308,13 @@ function ensureArchiveTable(db: Database.Database) {
   const cols = (db.prepare("PRAGMA table_info(archive_documents)").all() as { name: string }[]).map((c) => c.name);
   if (!cols.includes("task_id")) db.exec("ALTER TABLE archive_documents ADD COLUMN task_id INTEGER REFERENCES tasks(id)");
   db.exec("CREATE INDEX IF NOT EXISTS idx_archive_task ON archive_documents(task_id)");
+
+  // Счёт взаиморасчётов, который показывается в портале контрагента
+  // (ИП Остапович → «Юра Остапович»): приход/расход/налог/комиссия/остаток
+  const ccols = (db.prepare("PRAGMA table_info(contractors)").all() as { name: string }[]).map((c) => c.name);
+  if (!ccols.includes("settlement_account_id")) {
+    db.exec("ALTER TABLE contractors ADD COLUMN settlement_account_id INTEGER REFERENCES settlement_accounts(id)");
+  }
 }
 
 function initSchema(db: Database.Database) {

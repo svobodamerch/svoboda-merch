@@ -15,6 +15,7 @@ type Item = {
   doc_date: string | null;
   amount_kopecks: number | null;
   direction: string | null;
+  status: string | null;
   contractor_id: number | null;
   contractor_name: string | null;
   order_id: number | null;
@@ -174,6 +175,9 @@ export default function ArchivePage() {
                     {money(it.amount_kopecks)}
                   </span>
                 )}
+                {it.status && STATUS[it.status] && (
+                  <span className={`label ${it.status === "awaiting" ? "text-accent" : "text-muted"}`}>{STATUS[it.status]}</span>
+                )}
                 <span className="ml-auto label text-muted">{sourceLabel[it.source] || it.source}</span>
               </div>
               <div className="label mt-1 flex flex-wrap gap-x-3 text-muted md:pl-[108px]">
@@ -225,7 +229,10 @@ export default function ArchivePage() {
   );
 }
 
+const STATUS: Record<string, string> = { awaiting: "ждёт оплаты", paid: "оплачен", signed: "подписан", cancelled: "отменён" };
+
 type Meta = {
+  status: string;
   title: string;
   kind: string;
   docNumber: string;
@@ -240,6 +247,7 @@ type Meta = {
 };
 
 const emptyMeta: Meta = {
+  status: "",
   title: "",
   kind: "other",
   docNumber: "",
@@ -298,6 +306,14 @@ function MetaFields({
         {projects.map((p) => (
           <option key={p.id} value={p.id}>
             {p.title}
+          </option>
+        ))}
+      </select>
+      <select className={field} value={meta.status} onChange={(e) => set({ status: e.target.value })}>
+        <option value="">Статус — не важен</option>
+        {Object.entries(STATUS).map(([k, v]) => (
+          <option key={k} value={k}>
+            {v}
           </option>
         ))}
       </select>
@@ -391,6 +407,7 @@ function EditForm({
   onDelete: () => void;
 }) {
   const [meta, setMeta] = useState<Meta>({
+    status: item.status || "",
     title: item.title,
     kind: item.kind,
     docNumber: item.doc_number || "",

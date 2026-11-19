@@ -3,6 +3,7 @@
 import { useParams } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { PortalTasks } from "./PortalTasks";
+import { PortalFinance } from "./PortalFinance";
 
 type CostRow = {
   id: number;
@@ -102,6 +103,9 @@ export default function ContractorPortalPage() {
 
       <PortalTasks slug={slug} password={password} />
 
+      <PortalFinance slug={slug} password={password} />
+
+      {(data.costs.length > 0 || data.payments.length > 0) && (<>
       <div className="rounded-2xl bg-tint p-6">
         <p className="label text-accent mb-1">
           {data.remainingKopecks >= 0 ? "Остаток долга нам перед вами" : "Переплата"}
@@ -155,6 +159,7 @@ export default function ContractorPortalPage() {
         </ul>
         {data.payments.length === 0 && <p className="label text-muted">Оплат ещё не было</p>}
       </div>
+      </>)}
     </div>
   );
 }
