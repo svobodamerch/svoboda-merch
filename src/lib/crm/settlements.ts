@@ -30,6 +30,8 @@ export type SettlementAccount = {
   note: string | null;
   tax_percent: number | null;
   fee_percent: number | null;
+  bank_balance_kopecks?: number | null;
+  bank_balance_date?: string | null;
   created_at: string;
 };
 

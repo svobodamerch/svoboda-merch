@@ -99,6 +99,10 @@ function ensureSettlementRateColumns(db: Database.Database) {
   const cols = (db.prepare("PRAGMA table_info(settlement_accounts)").all() as { name: string }[]).map((c) => c.name);
   if (!cols.includes("tax_percent")) db.exec("ALTER TABLE settlement_accounts ADD COLUMN tax_percent REAL");
   if (!cols.includes("fee_percent")) db.exec("ALTER TABLE settlement_accounts ADD COLUMN fee_percent REAL");
+  // Остаток на счёте ИП по последней выписке — чтобы показать, из чего он
+  // складывается: деньги Андрея (бизнес-остаток сверки) + доля Юры
+  if (!cols.includes("bank_balance_kopecks")) db.exec("ALTER TABLE settlement_accounts ADD COLUMN bank_balance_kopecks INTEGER");
+  if (!cols.includes("bank_balance_date")) db.exec("ALTER TABLE settlement_accounts ADD COLUMN bank_balance_date TEXT");
 }
 
 function ensureOrderNotesColumn(db: Database.Database) {

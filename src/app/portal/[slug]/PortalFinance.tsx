@@ -11,7 +11,8 @@ type Entry = {
   title: string;
   basis: "confirmed_in_chat" | "needs_check";
   response: "agreed" | "disputed" | null;
-  group: "income" | "tax" | "fee" | "expense";
+  group: "income" | "tax" | "fee" | "expense" | "payout";
+  runningKopecks: number | null;
 };
 type Finance = {
   accountName: string;
@@ -22,7 +23,9 @@ type Finance = {
   expenseKopecks: number;
   taxKopecks: number;
   feeKopecks: number;
+  payoutKopecks: number;
   balanceKopecks: number;
+  bank: { balanceKopecks: number; date: string | null; yuraShareKopecks: number } | null;
   confirmedBalanceKopecks: number;
   needsCheckCount: number;
   lastEntryDate: string | null;
@@ -46,6 +49,7 @@ const groupLabel: Record<Entry["group"], string> = {
   tax: "Налог",
   fee: "Комиссия",
   expense: "Расход",
+  payout: "Андрею",
 };
 
 export function PortalFinance({ slug, password }: { slug: string; password: string }) {
@@ -71,12 +75,14 @@ export function PortalFinance({ slug, password }: { slug: string; password: stri
       <p className="label text-accent">Деньги на счёте ИП</p>
 
       <div className="rounded-2xl bg-tint p-6">
-        <p className="label text-accent mb-1">Остаток на счёте</p>
+        <p className="label text-accent mb-1">
+          {f.balanceKopecks >= 0 ? "Деньги Андрея у Юры" : "Андрей должен Юре"}
+        </p>
         <p className="display text-ink" style={{ fontSize: "2.1rem" }}>
-          {money(f.balanceKopecks)}
+          {money(Math.abs(f.balanceKopecks))}
         </p>
         <p className="label text-muted mt-2">
-          Приход минус все расходы, налог и комиссия
+          Приходы от клиентов минус оплаты подрядчикам, налог, комиссия Юры и то, что Юра уже отдал Андрею
           {f.lastEntryDate && <> · по данным на {day(f.lastEntryDate)}</>}
         </p>
         {f.confirmedBalanceKopecks !== f.balanceKopecks && (
@@ -86,11 +92,31 @@ export function PortalFinance({ slug, password }: { slug: string; password: stri
         )}
       </div>
 
+      {f.bank && (
+        <div className="rounded-2xl bg-surface p-4">
+          <div className="flex items-baseline justify-between gap-2">
+            <p className="label text-ink">На расчётном счёте{f.bank.date && <> на {day(f.bank.date)}</>}</p>
+            <p className="label text-ink">{money(f.bank.balanceKopecks)}</p>
+          </div>
+          <ul className="mt-2 space-y-1">
+            <li className="flex justify-between gap-3">
+              <span className="label text-muted">{f.balanceKopecks >= 0 ? "из них деньги Андрея" : "долг Андрея Юре"}</span>
+              <span className="label text-ink-soft">{f.balanceKopecks >= 0 ? "" : "−"}{money(Math.abs(f.balanceKopecks))}</span>
+            </li>
+            <li className="flex justify-between gap-3">
+              <span className="label text-muted">доля Юры (комиссия, его личные деньги)</span>
+              <span className="label text-ink-soft">{money(f.bank.yuraShareKopecks)}</span>
+            </li>
+          </ul>
+        </div>
+      )}
+
       <div className="grid grid-cols-2 gap-3">
         <Tile label="Приход от клиентов" value={money(f.incomeKopecks)} />
-        <Tile label="Оплачено подрядчикам и переводы" value={money(f.expenseKopecks)} />
+        <Tile label="Оплачено подрядчикам" value={money(f.expenseKopecks)} />
         <Tile label={`Налог ${pct(f.taxPercent)}%`} value={money(f.taxKopecks)} />
         <Tile label={`Комиссия Юры ${pct(f.feePercent)}% — заработано`} value={money(f.feeKopecks)} accent />
+        <Tile label="Юра отдал Андрею" value={money(f.payoutKopecks)} />
       </div>
 
       {f.needsCheckCount > 0 && (
@@ -149,7 +175,7 @@ export function PortalFinance({ slug, password }: { slug: string; password: stri
 
       {f.personal && (
         <div className="rounded-2xl bg-surface p-4">
-          <p className="label text-ink">Личные переводы (отдельно от бизнеса)</p>
+          <p className="label text-ink">Личные операции Юры (в расчёт с Андреем не входят)</p>
           <p className="label text-muted mt-1">
             Пришло {money(f.personal.inKopecks)} · ушло {money(f.personal.outKopecks)} · остаток {money(f.personal.balanceKopecks)}
           </p>
@@ -158,7 +184,7 @@ export function PortalFinance({ slug, password }: { slug: string; password: stri
 
       <div>
         <div className="mb-2 flex flex-wrap gap-1.5">
-          {(["all", "income", "expense", "tax", "fee"] as const).map((g) => (
+          {(["all", "income", "expense", "payout", "tax", "fee"] as const).map((g) => (
             <button
               key={g}
               type="button"
@@ -169,6 +195,7 @@ export function PortalFinance({ slug, password }: { slug: string; password: stri
             </button>
           ))}
         </div>
+        <p className="label text-muted mb-2">Под суммой — сколько денег Андрея у Юры после этой операции.</p>
         <ul className="divide-y divide-line border-t border-line">
           {visible.map((e) => (
             <li key={e.id} className="flex items-start justify-between gap-3 py-2.5">
@@ -181,9 +208,16 @@ export function PortalFinance({ slug, password }: { slug: string; password: stri
                   {e.response === "disputed" && " · спорная, не в остатке"}
                 </p>
               </div>
-              <span className={`label shrink-0 ${e.direction === "in" ? "text-accent" : "text-ink"}`}>
-                {e.amount_kopecks == null ? "—" : `${e.direction === "in" ? "+" : "−"}${money(e.amount_kopecks)}`}
-              </span>
+              <div className="shrink-0 text-right">
+                <p className={`label ${e.direction === "in" ? "text-accent" : "text-ink"}`}>
+                  {e.amount_kopecks == null ? "—" : `${e.direction === "in" ? "+" : "−"}${money(e.amount_kopecks)}`}
+                </p>
+                {e.runningKopecks != null && (
+                  <p className="label text-muted" title="Деньги Андрея у Юры после операции">
+                    = {e.runningKopecks < 0 ? "−" : ""}{money(Math.abs(e.runningKopecks))}
+                  </p>
+                )}
+              </div>
             </li>
           ))}
         </ul>

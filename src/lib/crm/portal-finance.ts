@@ -13,7 +13,11 @@ import { computeBalance, getAccount, getEntries, listProposals, type SettlementE
 export type FinanceEntry = Pick<
   SettlementEntry,
   "id" | "entry_date" | "category" | "direction" | "amount_kopecks" | "title" | "basis" | "response"
-> & { group: "income" | "tax" | "fee" | "expense" };
+> & {
+  group: "income" | "tax" | "fee" | "expense" | "payout";
+  /** Деньги Андрея у Юры после этой операции (только бизнес-строки) */
+  runningKopecks: number | null;
+};
 
 export type ExpectedIncome = {
   doc_number: string | null;
@@ -33,7 +37,12 @@ export type PortalFinance = {
   expenseKopecks: number;
   taxKopecks: number;
   feeKopecks: number;
+  /** Сколько Юра уже отдал Андрею (наличные, переводы) */
+  payoutKopecks: number;
+  /** Деньги Андрея у Юры: плюс — Юра должен Андрею, минус — Андрей Юре */
   balanceKopecks: number;
+  /** Остаток на счёте ИП по последней выписке и его раскладка */
+  bank: { balanceKopecks: number; date: string | null; yuraShareKopecks: number } | null;
   confirmedBalanceKopecks: number;
   needsCheckCount: number;
   lastEntryDate: string | null;
@@ -49,6 +58,7 @@ export type PortalFinance = {
 const groupOf = (e: SettlementEntry): FinanceEntry["group"] => {
   if (e.direction === "in") return "income";
   const t = e.title.trim().toLowerCase();
+  if (t.startsWith("андрею")) return "payout";
   if (t.startsWith("налог")) return "tax";
   if (t.startsWith("комиссия")) return "fee";
   return "expense";
@@ -75,7 +85,7 @@ export function getPortalFinance(contractorId: number): PortalFinance | null {
   const business = all.filter((e) => e.category === "business");
   const personalEntries = all.filter((e) => e.category === "personal");
 
-  let income = 0, expense = 0, tax = 0, fee = 0, needsCheck = 0;
+  let income = 0, expense = 0, tax = 0, fee = 0, payout = 0, needsCheck = 0;
   for (const e of business) {
     if (e.basis === "needs_check" && e.response !== "agreed") needsCheck++;
     if (e.amount_kopecks == null || e.response === "disputed") continue;
@@ -83,6 +93,7 @@ export function getPortalFinance(contractorId: number): PortalFinance | null {
     if (g === "income") income += e.amount_kopecks;
     else if (g === "tax") tax += e.amount_kopecks;
     else if (g === "fee") fee += e.amount_kopecks;
+    else if (g === "payout") payout += e.amount_kopecks;
     else expense += e.amount_kopecks;
   }
   const bal = computeBalance(all, "business");
@@ -121,7 +132,16 @@ export function getPortalFinance(contractorId: number): PortalFinance | null {
     expenseKopecks: expense,
     taxKopecks: tax,
     feeKopecks: fee,
+    payoutKopecks: payout,
     balanceKopecks: bal.balanceKopecks,
+    bank:
+      account.bank_balance_kopecks != null
+        ? {
+            balanceKopecks: account.bank_balance_kopecks,
+            date: account.bank_balance_date ?? null,
+            yuraShareKopecks: account.bank_balance_kopecks - bal.balanceKopecks,
+          }
+        : null,
     confirmedBalanceKopecks: bal.confirmedBalanceKopecks,
     needsCheckCount: needsCheck,
     lastEntryDate: all.length ? all[all.length - 1].entry_date : null,
@@ -132,11 +152,20 @@ export function getPortalFinance(contractorId: number): PortalFinance | null {
     pending: listProposals(account.id).map((p) => ({
       entry_date: p.entry_date, direction: p.direction, amount_kopecks: p.amount_kopecks, title: p.title,
     })),
-    entries: all
-      .map((e) => ({
-        id: e.id, entry_date: e.entry_date, category: e.category, direction: e.direction,
-        amount_kopecks: e.amount_kopecks, title: e.title, basis: e.basis, response: e.response, group: groupOf(e),
-      }))
-      .reverse(),
+    entries: withRunning(all).reverse(),
   };
+}
+
+/** Нарастающий остаток денег Андрея по бизнес-строкам — getEntries уже по дате */
+function withRunning(all: SettlementEntry[]): FinanceEntry[] {
+  let run = 0;
+  return all.map((e) => {
+    const counts = e.category === "business" && e.amount_kopecks != null && e.response !== "disputed";
+    if (counts) run += e.direction === "in" ? e.amount_kopecks! : -e.amount_kopecks!;
+    return {
+      id: e.id, entry_date: e.entry_date, category: e.category, direction: e.direction,
+      amount_kopecks: e.amount_kopecks, title: e.title, basis: e.basis, response: e.response, group: groupOf(e),
+      runningKopecks: e.category === "business" ? run : null,
+    };
+  });
 }
